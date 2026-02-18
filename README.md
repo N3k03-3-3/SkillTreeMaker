@@ -207,24 +207,37 @@ AI アシスタント（Cursor など）から以下の操作が可能：
 SkillTreeMaker/
 ├── .agent/
 │   └── skills/                     # 役割別ガードレール
-│       ├── programmer/
-│       │   └── SKILL.md           # プログラマー向け
-│       ├── code_reviewer/
-│       │   └── SKILL.md           # レビュアー向け
-│       └── designer/
-│           └── SKILL.md           # デザイナー向け
-├── .cursor/
-│   └── mcp.json                    # MCP サーバー設定
+│       ├── programmer/SKILL.md
+│       ├── code_reviewer/SKILL.md
+│       └── designer/SKILL.md
+├── addons/skill_tree_maker/        # EditorPlugin 本体
+│   ├── plugin.cfg                  # プラグイン定義
+│   ├── skill_tree_maker_plugin.gd  # プラグインエントリポイント
+│   ├── model/                      # データモデル層
+│   │   ├── skill_tree_model.gd     # ノード/エッジ/グループ管理
+│   │   ├── selection_model.gd      # 選択状態管理
+│   │   └── tool_state.gd           # Grid/Snap/ズーム状態
+│   ├── services/                   # ビジネスロジック層
+│   │   ├── pack_repository.gd      # Pack 永続化
+│   │   ├── theme_resolver.gd       # テーマ解決・保存
+│   │   ├── validator.gd            # 構造バリデーション
+│   │   └── runtime_exporter.gd     # runtime.json 生成
+│   └── ui/                         # UI 層
+│       ├── skill_tree_maker_dock.gd # メインコーディネータ
+│       ├── canvas_view.gd          # キャンバス描画
+│       ├── hierarchy_panel.gd      # 階層ツリー
+│       ├── inspector_panel.gd      # プロパティ編集
+│       ├── canvas_context_menu.gd  # 右クリックメニュー
+│       ├── pack_creation_dialog.gd # Pack 作成ダイアログ
+│       └── group_name_dialog.gd    # グループ名入力ダイアログ
 ├── document/                       # 仕様書・設計書
 │   ├── 0.作成仕様
 │   ├── 1.フォルダ仕様
 │   ├── 2.Godot EditorPlugin クラス設計
-│   └── coding_standards.md        # コーディング規約
-├── godot-mcp/                      # MCP サーバー本体
-│   └── build/
-│       └── index.js
+│   └── coding_standards.md
+├── godot-mcp/                      # MCP サーバー
 ├── .gitignore
-└── README.md                       # このファイル
+└── README.md
 ```
 
 
@@ -232,31 +245,43 @@ SkillTreeMaker/
 
 ## 🎯 ロードマップ
 
-### Phase 1: 基盤構築（現在）
+### Phase 1: 基盤構築 ✅
 - [x] 仕様策定
 - [x] Godot MCP 導入
 - [x] コーディング規約策定
 - [x] チーム作業ガードレール策定
-- [ ] EditorPlugin 基本実装
-- [ ] PackRepository 実装
-- [ ] CanvasView 実装
+- [x] EditorPlugin 基本実装（plugin.cfg, SkillTreeMakerPlugin）
+- [x] PackRepository 実装（Pack の作成・保存・読み込み）
+- [x] CanvasView 実装（ノード/エッジ描画・ドラッグ移動）
 
-### Phase 2: コア機能
-- [ ] ノード配置・編集機能
-- [ ] テーマシステム実装
-- [ ] バリデーション機能
-- [ ] Export 機能
+### Phase 2: コア機能 ✅
+- [x] SkillTreeModel（ノード/エッジ/グループの CRUD）
+- [x] SelectionModel（選択状態管理）
+- [x] ToolState（Grid/Snap/ズーム状態管理）
+- [x] ThemeResolver（テーマ読み込み・解決）
+- [x] Validator（循環参照チェック等）
+- [x] RuntimeExporter（runtime.json 生成）
 
-### Phase 3: ゲーム内統合
+### Phase 3: エディタ UI ✅
+- [x] HierarchyPanel（ツリー構造の階層表示）
+- [x] InspectorPanel（ノード/エッジ/グループ/ツリーのプロパティ編集）
+- [x] CanvasContextMenu（右クリックメニュー）
+- [x] PackCreationDialog（Pack 作成ダイアログ）
+- [x] キーボードショートカット（Delete, Ctrl+S, Ctrl+Z 等）
+- [x] SkillTreeMakerDock（全パネル統合・コーディネータ）
+
+### Phase 4: ユーザビリティ・管理機能 ✅
+- [x] Open Pack（既存 Pack の再開封）
+- [x] Grid/Snap ツールバーコントロール
+- [x] グループ管理（追加・削除・ノード移動）
+- [x] テーマプロパティ編集・保存
+
+### Phase 5: 拡張機能（未着手）
 - [ ] SkillTreeViewer ランタイム実装
 - [ ] PackLoader 実装
-- [ ] サンプルパック作成
-- [ ] テスト・デバッグ
-
-### Phase 4: 拡張機能
-- [ ] 複数ツリー対応
 - [ ] アニメーションシステム
 - [ ] プレビューモード
+- [ ] サンプルパック作成
 - [ ] ドキュメント整備
 
 ---
@@ -283,5 +308,5 @@ SkillTreeMaker/
 
 ---
 
-**Author**: nekosan  
-**Last Updated**: 2026-01-25
+**Author**: nekosan
+**Last Updated**: 2026-02-18
