@@ -1,0 +1,134 @@
+## Godot EditorPlugin クラス設計（Mermaid）
+
+「UI（View）」「データ（Model）」「処理（Service）」に分けて、EditorPlugin化しやすくしてある。
+ゲーム内実装へ転用する場合も、この分離が効いてくる。
+
+```mermaid
+classDiagram
+direction TB
+
+class SkillTreeMakerPlugin {
+  +_enter_tree()
+  +_exit_tree()
+  +open_editor()
+  +close_editor()
+}
+
+class SkillTreeMakerDock {
+  +set_project(path)
+  +new_pack(id, name, out_dir)
+  +open_pack(pack_root)
+  +save_pack()
+  +export_runtime()
+}
+
+class CanvasView {
+  +set_model(model)
+  +pan(delta)
+  +zoom(factor, pivot)
+  +create_node(pos)
+  +connect_nodes(a, b)
+  +select(node_id)
+  +focus(node_id)
+  +render()
+}
+
+class InspectorPanel {
+  +bind_selection(sel)
+  +edit_tree_props()
+  +edit_group_props()
+  +edit_node_props()
+  +edit_edge_props()
+  +edit_theme_props()
+}
+
+class HierarchyPanel {
+  +set_model(model)
+  +search(text)
+  +select(node_id)
+  +select_group(group_id)
+}
+
+class ToolState {
+  +camera_pos
+  +camera_zoom
+  +grid_enabled
+  +grid_size
+  +snap_enabled
+  +last_selected_id
+}
+
+class SkillTreeModel {
+  +pack_meta
+  +runtime_data
+  +theme_ref
+  +tool_state
+  +get_node(id)
+  +add_node(node)
+  +remove_node(id)
+  +add_edge(edge)
+  +remove_edge(edge_id)
+}
+
+class PackRepository {
+  +load_pack(pack_root) SkillTreeModel
+  +save_pack(model)
+  +ensure_structure(pack_root)
+}
+
+class RuntimeExporter {
+  +build_runtime(model) RuntimeData
+  +write_runtime(pack_root, runtime)
+  +copy_assets(pack_root, referenced_assets)
+}
+
+class ThemeResolver {
+  +load_theme(theme_path) ThemeData
+  +resolve_asset(path) String
+  +collect_references(model) String[]
+}
+
+class Validator {
+  +validate(model) ValidationReport
+  +check_cycles(model)
+  +check_missing_refs(model)
+  +check_unreachable(model)
+  +check_entry_node(model)
+}
+
+class ValidationReport {
+  +errors
+  +warnings
+  +has_errors() bool
+}
+
+class SelectionModel {
+  +selected_type  // tree|group|node|edge
+  +selected_id
+  +set_selection(type, id)
+}
+
+SkillTreeMakerPlugin --> SkillTreeMakerDock
+SkillTreeMakerDock --> CanvasView
+SkillTreeMakerDock --> InspectorPanel
+SkillTreeMakerDock --> HierarchyPanel
+
+SkillTreeMakerDock --> PackRepository
+SkillTreeMakerDock --> RuntimeExporter
+SkillTreeMakerDock --> Validator
+
+CanvasView --> SkillTreeModel
+HierarchyPanel --> SkillTreeModel
+InspectorPanel --> SkillTreeModel
+
+SkillTreeMakerDock --> SelectionModel
+InspectorPanel --> SelectionModel
+CanvasView --> SelectionModel
+HierarchyPanel --> SelectionModel
+
+SkillTreeModel --> ToolState
+RuntimeExporter --> ThemeResolver
+Validator --> ValidationReport
+PackRepository --> ThemeResolver
+```
+

@@ -1,0 +1,45 @@
+# Godot
+.godot/
+.import/
+export.cfg
+export_presets.cfg
+.mono/
+data_*/
+mono_crash.*.json
+
+# Godot-specific
+*.translation
+
+# IDE
+.cursor/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node.js (for godot-mcp)
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+
+# Build outputs
+build/
+dist/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.bak
+*.cache
+
+# MCP Server (keep config, exclude logs)
+godot-mcp/build/
+godot-mcp/node_modules/
+godot-mcp/*.log

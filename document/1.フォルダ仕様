@@ -1,0 +1,250 @@
+了解。いまの要件に合わせて「汎用スキルツリーGUIメーカー」の核になる仕様を、パック仕様→JSONスキーマ→EditorPluginのクラス設計（Mermaid）の順でまとめるね。
+ここは“後から増やしても壊れない”を最優先にしてある。
+
+---
+
+## SkillTree Pack 正式フォルダ仕様
+
+SkillTree Pack は「1つのスキルツリー（または1グループまとまり）」を丸ごと運ぶ単位。
+ツールはここへ書き出し、ゲームはここから読み込む。
+
+### ルート構成（必須）
+
+```
+<PackRoot>/
+  pack.json
+  runtime.json
+  theme/
+```
+
+`pack.json` は編集・管理用（ツールが読む）。
+`runtime.json` はゲーム実行用（ゲームが読む）。
+`theme/` はテーマ素材置き場（ゲームも参照する）。
+
+### theme/（必須＋推奨）
+
+```
+theme/
+  theme.json
+  textures/
+  ninepatch/
+  fonts/
+  vfx/
+```
+
+`theme.json` はテーマ定義（参照先、色、サイズ、状態別見た目などを記述）。
+素材は用途別フォルダに寄せる。
+
+### 推奨の追加フォルダ（任意）
+
+```
+icons/
+locale/
+previews/
+meta/
+```
+
+`icons/` はノード用アイコン（スキルアイコン等）。
+`locale/` は説明文や名称の辞書（多言語前提にしやすい）。
+`previews/` はエディタ用のサムネ（パック一覧に使える）。
+`meta/` は作者情報や作業メモ等（ゲームには不要）。
+
+### locale/ 例（任意）
+
+```
+locale/
+  ja.json
+  en.json
+```
+
+ゲーム側でローカライズ基盤が別にあるなら、ここは使わなくてもいい。
+“ツールとして転用”を狙うなら、ここがあると便利。
+
+---
+
+## pack.json スキーマイメージ（編集・管理用）
+
+これは「ツールが編集のために必要な情報」を全部持ってよい。
+ゲームが読まなくてもOK。
+
+```json
+{
+  "schema_version": 1,
+  "pack": {
+    "id": "constellation_aries",
+    "name": "Aries Constellation",
+    "author": "nekosan",
+    "created_at": "2026-01-25T00:00:00+09:00",
+    "updated_at": "2026-01-25T00:00:00+09:00",
+    "tags": ["galaxy", "constellation", "hack_and_slash"]
+  },
+
+  "paths": {
+    "runtime": "runtime.json",
+    "theme": "theme/theme.json",
+    "icons_dir": "icons",
+    "locale_dir": "locale",
+    "preview_dir": "previews"
+  },
+
+  "editor_state": {
+    "camera": { "x": 0, "y": 0, "zoom": 1.0 },
+    "grid": { "enabled": true, "size": 32, "snap": true },
+    "selection": { "last_selected_node_id": "n_001" },
+    "notes": "作業メモ。ゲームには不要。"
+  },
+
+  "draft": {
+    "unused_nodes": ["n_tmp_001"],
+    "guides": [
+      { "type": "circle", "x": 0, "y": 0, "radius": 400 },
+      { "type": "line", "x1": -200, "y1": 0, "x2": 200, "y2": 0 }
+    ]
+  }
+}
+```
+
+設計意図として、`editor_state` と `draft` は将来いくら増えても良い領域。
+壊れる可能性があるのは、ゲームが読む `runtime.json` なので、そっちは極力安定させる。
+
+---
+
+## runtime.json スキーマイメージ（ゲーム実行用）
+
+これは「ゲームが読む最小限」。
+ツールの都合（メモ・ガイド線・作業途中）を入れない。
+
+```json
+{
+  "schema_version": 1,
+
+  "tree": {
+    "id": "constellation_aries",
+    "display_name_key": "tree.aries.name",
+    "description_key": "tree.aries.desc",
+    "theme_ref": "theme/theme.json",
+    "entry_node_id": "n_001",
+
+    "layout": {
+      "coordinate_space": "group_local",
+      "groups": [
+        { "id": "aries", "center": { "x": 0, "y": 0 } }
+      ]
+    }
+  },
+
+  "nodes": [
+    {
+      "id": "n_001",
+      "group_id": "aries",
+      "pos": { "x": 0, "y": 0 },
+      "name_key": "node.n_001.name",
+      "desc_key": "node.n_001.desc",
+      "icon_path": "icons/skill_001.png",
+
+      "style": {
+        "preset": "node_default",
+        "overrides": {
+          "size": 48,
+          "glow_color": "#88CCFF"
+        }
+      },
+
+      "unlock": {
+        "cost": { "type": "gp", "value": 1 },
+        "requires": []
+      },
+
+      "payload": {
+        "effect_id": "stat_add",
+        "params": { "atk": 2 }
+      }
+    },
+
+    {
+      "id": "n_002",
+      "group_id": "aries",
+      "pos": { "x": 120, "y": 40 },
+      "name_key": "node.n_002.name",
+      "desc_key": "node.n_002.desc",
+      "icon_path": "icons/skill_002.png",
+
+      "style": { "preset": "node_default" },
+
+      "unlock": {
+        "cost": { "type": "gp", "value": 2 },
+        "requires": ["n_001"]
+      },
+
+      "payload": {
+        "effect_id": "skill_unlock",
+        "params": { "skill": "fire_slash" }
+      }
+    }
+  ],
+
+  "edges": [
+    { "from": "n_001", "to": "n_002", "style_preset": "edge_default" }
+  ]
+}
+```
+
+ポイントはここ。
+
+`nodes.unlock.requires` が依存関係の一次情報。
+`edges` は表示用（線の見た目・太さ・演出）を持てるので分離している。
+グラフ構造は requires だけでも表せるが、見た目に関する自由度を確保するために edges を残す。
+
+`payload` はツールが理解しない自由領域。
+転用可能性を担保する要。
+
+### theme.json（参考：最小イメージ）
+
+`theme/theme.json` は「見た目の辞書」。
+ノードの状態（locked/unlockable/unlocked）もここで定義すると、ゲーム側が簡単になる。
+
+```json
+{
+  "schema_version": 1,
+
+  "background": {
+    "texture": "textures/bg_space.png",
+    "tint": "#FFFFFF",
+    "parallax": { "enabled": false }
+  },
+
+  "window": {
+    "frame_9slice": "ninepatch/window_frame.png",
+    "padding": { "l": 24, "t": 24, "r": 24, "b": 24 }
+  },
+
+  "node_presets": {
+    "node_default": {
+      "base_texture": "textures/node_base.png",
+      "size": 48,
+      "states": {
+        "locked":   { "overlay": "textures/node_locked.png",   "glow": false },
+        "can_unlock": { "overlay": "textures/node_unlocked.png", "glow": true, "glow_color": "#88CCFF" },
+        "unlocked": { "overlay": "textures/node_unlocked.png", "glow": true, "glow_color": "#FFD27D" }
+      }
+    }
+  },
+
+  "edge_presets": {
+    "edge_default": {
+      "width": 3,
+      "color_locked": "#445066",
+      "color_active": "#88CCFF"
+    }
+  },
+
+  "effects": {
+    "glow": { "texture": "vfx/glow.png", "blend": "add" }
+  },
+
+  "fonts": {
+    "main": "fonts/main_font.tres"
+  }
+}
+```
+
