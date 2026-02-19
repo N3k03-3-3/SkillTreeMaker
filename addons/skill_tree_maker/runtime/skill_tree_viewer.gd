@@ -268,7 +268,7 @@ func _gui_input(event: InputEvent) -> void:
 
 # --- Public Functions ---
 
-## Pack を読み込んでビューアを初期化する
+## Pack をファイルから読み込んでビューアを初期化する
 ##
 ## @param pack_root: Pack ルートディレクトリのパス (String)
 ## @return: 読み込み成功なら true
@@ -281,38 +281,25 @@ func load_pack(pack_root: String) -> bool:
 
 	_runtime_data = pack_data.get("runtime", {})
 	_theme_data = pack_data.get("theme", {})
+	_initialize_from_data()
+	return true
 
-	# ノード/エッジをキャッシュ
-	_nodes = _runtime_data.get("nodes", [])
-	_edges = _runtime_data.get("edges", [])
-	_nodes_by_id.clear()
-	for node: Dictionary in _nodes:
-		var node_id: String = node.get("id", "")
-		if not node_id.is_empty():
-			_nodes_by_id[node_id] = node
 
-	# SkillTreeState 初期化
-	_state = SkillTreeState.new()
-	_state.node_state_changed.connect(_on_node_state_changed)
-	_state.state_reset.connect(_on_state_reset)
-	_state.initialize(_runtime_data)
+## Pack をメモリ内データから読み込んでビューアを初期化する（プレビュー用）
+##
+## PackLoader を経由せず、Dictionary を直接受け取って初期化する。
+##
+## @param runtime_data: runtime.json 互換の Dictionary (Dictionary)
+## @param theme_data: theme.json 互換の Dictionary (Dictionary)
+## @return: 初期化成功なら true
+func load_pack_from_data(runtime_data: Dictionary, theme_data: Dictionary) -> bool:
+	if runtime_data.is_empty():
+		push_error("[SkillTreeViewer] load_pack_from_data: runtime_data is empty")
+		return false
 
-	# カメラリセット
-	_camera_pos = Vector2.ZERO
-	_camera_zoom = 1.0
-	_selected_node_id = ""
-	_hovered_node_id = ""
-
-	# アニメーション状態を初期化
-	_anim_states.clear()
-	_edge_anim_progress.clear()
-	for node: Dictionary in _nodes:
-		var nid: String = node.get("id", "")
-		if not nid.is_empty():
-			_anim_states[nid] = NodeAnimationState.new()
-	_activate_animation()
-
-	queue_redraw()
+	_runtime_data = runtime_data
+	_theme_data = theme_data
+	_initialize_from_data()
 	return true
 
 
@@ -868,8 +855,53 @@ func _on_node_state_changed(node_id: String, new_state: int) -> void:
 func _on_state_reset() -> void:
 	_selected_node_id = ""
 	_hovered_node_id = ""
+	_reset_animation_states()
+	queue_redraw()
 
-	# 全アニメーション状態をリセット
+
+# --- Private Functions: Initialization ---
+
+## ランタイムデータとテーマデータからビューアの内部状態を初期化する
+##
+## _runtime_data と _theme_data が設定済みの前提で呼ばれる。
+## ノード/エッジキャッシュ、SkillTreeState、カメラ、アニメーション状態を構築する。
+func _initialize_from_data() -> void:
+	# 旧 State のシグナルを切断（再初期化時の二重発火防止）
+	if _state != null:
+		if _state.node_state_changed.is_connected(_on_node_state_changed):
+			_state.node_state_changed.disconnect(_on_node_state_changed)
+		if _state.state_reset.is_connected(_on_state_reset):
+			_state.state_reset.disconnect(_on_state_reset)
+
+	# ノード/エッジをキャッシュ
+	_nodes = _runtime_data.get("nodes", [])
+	_edges = _runtime_data.get("edges", [])
+	_nodes_by_id.clear()
+	for node: Dictionary in _nodes:
+		var node_id: String = node.get("id", "")
+		if not node_id.is_empty():
+			_nodes_by_id[node_id] = node
+
+	# SkillTreeState 初期化
+	_state = SkillTreeState.new()
+	_state.node_state_changed.connect(_on_node_state_changed)
+	_state.state_reset.connect(_on_state_reset)
+	_state.initialize(_runtime_data)
+
+	# カメラリセット
+	_camera_pos = Vector2.ZERO
+	_camera_zoom = 1.0
+	_selected_node_id = ""
+	_hovered_node_id = ""
+
+	# アニメーション状態を初期化
+	_reset_animation_states()
+
+	queue_redraw()
+
+
+## アニメーション状態を全リセットする
+func _reset_animation_states() -> void:
 	_anim_states.clear()
 	_edge_anim_progress.clear()
 	for node: Dictionary in _nodes:
@@ -877,7 +909,6 @@ func _on_state_reset() -> void:
 		if not nid.is_empty():
 			_anim_states[nid] = NodeAnimationState.new()
 	_activate_animation()
-	queue_redraw()
 
 
 # --- Private Functions: Animation ---

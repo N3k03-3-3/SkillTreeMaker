@@ -79,6 +79,21 @@ var _btn_snap: CheckButton = null
 ## グループ名入力ダイアログ
 var _group_name_dialog: GroupNameDialog = null
 
+## プレビューモードか
+var _is_preview_mode: bool = false
+
+## プレビュー用ビューア
+var _preview_viewer: SkillTreeViewer = null
+
+## プレビューボタン
+var _btn_preview: Button = null
+
+## メインコンテンツの HSplitContainer
+var _hsplit: HSplitContainer = null
+
+## プレビュー中に無効化する編集系ボタン群
+var _toolbar_edit_buttons: Array[BaseButton] = []
+
 
 # --- Built-in Functions ---
 
@@ -217,24 +232,29 @@ func _build_ui() -> void:
 	vbox.add_child(_toolbar)
 
 	# メインコンテンツ: HSplitContainer（3パネル）
-	var hsplit: HSplitContainer = HSplitContainer.new()
-	hsplit.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	hsplit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.add_child(hsplit)
+	_hsplit = HSplitContainer.new()
+	_hsplit.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_hsplit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(_hsplit)
 
 	# 左: HierarchyPanel
 	_hierarchy_panel = HierarchyPanel.new()
-	hsplit.add_child(_hierarchy_panel)
+	_hsplit.add_child(_hierarchy_panel)
 
 	# 中央: CanvasView
 	_canvas_view = CanvasView.new()
 	_canvas_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_canvas_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hsplit.add_child(_canvas_view)
+	_hsplit.add_child(_canvas_view)
 
 	# 右: InspectorPanel
 	_inspector_panel = InspectorPanel.new()
-	hsplit.add_child(_inspector_panel)
+	_hsplit.add_child(_inspector_panel)
+
+	# プレビュー用ビューア（初期は非表示、ツリーに追加しない）
+	_preview_viewer = SkillTreeViewer.new()
+	_preview_viewer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_preview_viewer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	# シグナル接続: CanvasView
 	_canvas_view.node_create_requested.connect(_on_node_create_requested)
@@ -321,6 +341,15 @@ func _build_toolbar() -> HBoxContainer:
 	btn_export.pressed.connect(_on_export_pressed)
 	toolbar.add_child(btn_export)
 
+	# Preview ボタン
+	var separator_preview: VSeparator = VSeparator.new()
+	toolbar.add_child(separator_preview)
+
+	_btn_preview = Button.new()
+	_btn_preview.text = "Preview"
+	_btn_preview.pressed.connect(_on_preview_pressed)
+	toolbar.add_child(_btn_preview)
+
 	# スペーサー
 	var spacer: Control = Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -349,6 +378,9 @@ func _build_toolbar() -> HBoxContainer:
 	btn_zoom_reset.text = "1:1"
 	btn_zoom_reset.pressed.connect(_on_zoom_reset_pressed)
 	toolbar.add_child(btn_zoom_reset)
+
+	# プレビュー中に無効化する編集系ボタン群
+	_toolbar_edit_buttons = [btn_new, btn_open, btn_save, btn_validate, btn_export, _btn_grid, _btn_snap, btn_zoom_reset]
 
 	return toolbar
 
@@ -685,3 +717,78 @@ func _on_group_name_confirmed(group_id: String) -> void:
 		_set_status("Group created: " + group_id)
 	else:
 		_set_status("Error: Group already exists: " + group_id)
+
+
+## Preview ボタン押下
+func _on_preview_pressed() -> void:
+	if _is_preview_mode:
+		_exit_preview_mode()
+	else:
+		_enter_preview_mode()
+
+
+# --- Private Functions: Preview Mode ---
+
+## プレビューモードに入る
+##
+## ランタイムデータをインメモリで構築し、CanvasView を SkillTreeViewer に差し替える。
+func _enter_preview_mode() -> void:
+	if _model == null or _current_pack_root.is_empty():
+		_set_status("Open or create a pack first")
+		return
+
+	# ランタイムデータをインメモリで構築
+	var runtime_data: Dictionary = _runtime_exporter.build_runtime(_model)
+	if runtime_data.is_empty():
+		_set_status("Preview error: failed to build runtime data")
+		return
+
+	# テーマデータを取得
+	var theme_data: Dictionary = _theme_resolver.get_theme_data()
+
+	# SkillTreeViewer にデータをロード
+	var success: bool = _preview_viewer.load_pack_from_data(runtime_data, theme_data)
+	if not success:
+		_set_status("Preview error: failed to initialize viewer")
+		return
+
+	_is_preview_mode = true
+
+	# 中央パネルを CanvasView → SkillTreeViewer に差し替え
+	var canvas_index: int = _canvas_view.get_index()
+	_hsplit.remove_child(_canvas_view)
+	_hsplit.add_child(_preview_viewer)
+	_hsplit.move_child(_preview_viewer, canvas_index)
+
+	# ボタン状態を更新
+	_btn_preview.text = "Edit"
+	_set_toolbar_edit_enabled(false)
+
+	_set_status("Preview Mode: double-click to unlock nodes")
+
+
+## プレビューモードを終了する
+##
+## SkillTreeViewer を CanvasView に戻す。
+func _exit_preview_mode() -> void:
+	_is_preview_mode = false
+
+	# 中央パネルを SkillTreeViewer → CanvasView に差し替え
+	var preview_index: int = _preview_viewer.get_index()
+	_hsplit.remove_child(_preview_viewer)
+	_hsplit.add_child(_canvas_view)
+	_hsplit.move_child(_canvas_view, preview_index)
+
+	# ボタン状態を復帰
+	_btn_preview.text = "Preview"
+	_set_toolbar_edit_enabled(true)
+
+	_set_status("Edit Mode")
+
+
+## 編集系ツールバーボタンの有効/無効を一括設定する
+##
+## @param enabled: 有効にするなら true (bool)
+func _set_toolbar_edit_enabled(enabled: bool) -> void:
+	for btn: BaseButton in _toolbar_edit_buttons:
+		btn.disabled = not enabled

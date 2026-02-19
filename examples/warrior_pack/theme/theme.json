@@ -1,0 +1,44 @@
+{
+	"schema_version": 1,
+	"background": {
+		"texture": "",
+		"tint": "#1A1A22",
+		"parallax": {"enabled": false}
+	},
+	"window": {
+		"frame_9slice": "",
+		"padding": {"l": 24, "t": 24, "r": 24, "b": 24}
+	},
+	"node_presets": {
+		"node_default": {
+			"base_texture": "",
+			"size": 64,
+			"states": {
+				"locked": {
+					"overlay": "",
+					"glow": false,
+					"glow_color": ""
+				},
+				"can_unlock": {
+					"overlay": "",
+					"glow": true,
+					"glow_color": "#6699DD"
+				},
+				"unlocked": {
+					"overlay": "",
+					"glow": true,
+					"glow_color": "#66CC77"
+				}
+			}
+		}
+	},
+	"edge_presets": {
+		"edge_default": {
+			"width": 3,
+			"color_locked": "#334455",
+			"color_active": "#6699DD"
+		}
+	},
+	"effects": {},
+	"fonts": {}
+}

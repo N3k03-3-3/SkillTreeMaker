@@ -1,0 +1,147 @@
+{
+	"schema_version": 1,
+	"pack": {
+		"id": "warrior",
+		"name": "Warrior Skill Tree",
+		"author": "nekosan",
+		"created_at": "2026-02-20T00:00:00+09:00",
+		"updated_at": "2026-02-20T00:00:00+09:00",
+		"tags": ["rpg", "warrior", "sample"]
+	},
+	"paths": {
+		"runtime": "runtime.json",
+		"theme": "theme/theme.json",
+		"icons_dir": "icons",
+		"locale_dir": "locale",
+		"preview_dir": "previews"
+	},
+	"tree_meta": {
+		"id": "warrior",
+		"display_name_key": "Warrior",
+		"description_key": "A melee combat skill tree for warriors.",
+		"theme_ref": "theme/theme.json",
+		"entry_node_id": "n_power_strike",
+		"layout": {
+			"coordinate_space": "group_local",
+			"groups": [
+				{
+					"id": "offense",
+					"center": {"x": 0.0, "y": 0.0}
+				},
+				{
+					"id": "defense",
+					"center": {"x": 300.0, "y": 0.0}
+				}
+			]
+		}
+	},
+	"nodes": [
+		{
+			"id": "n_power_strike",
+			"group_id": "offense",
+			"pos": {"x": 0.0, "y": 0.0},
+			"name_key": "Power Strike",
+			"desc_key": "A powerful melee attack that deals 150% damage.",
+			"icon_path": "",
+			"style": {"preset": "node_default", "overrides": {}},
+			"unlock": {"cost": {"type": "sp", "value": 1}, "requires": []},
+			"payload": {"effect_id": "power_strike", "damage_multiplier": 1.5}
+		},
+		{
+			"id": "n_whirlwind",
+			"group_id": "offense",
+			"pos": {"x": -100.0, "y": 120.0},
+			"name_key": "Whirlwind",
+			"desc_key": "Spin attack hitting all nearby enemies.",
+			"icon_path": "",
+			"style": {"preset": "node_default", "overrides": {}},
+			"unlock": {"cost": {"type": "sp", "value": 2}, "requires": ["n_power_strike"]},
+			"payload": {"effect_id": "whirlwind", "aoe_radius": 3.0}
+		},
+		{
+			"id": "n_charge",
+			"group_id": "offense",
+			"pos": {"x": 100.0, "y": 120.0},
+			"name_key": "Charge",
+			"desc_key": "Rush toward an enemy, stunning on impact.",
+			"icon_path": "",
+			"style": {"preset": "node_default", "overrides": {}},
+			"unlock": {"cost": {"type": "sp", "value": 2}, "requires": ["n_power_strike"]},
+			"payload": {"effect_id": "charge", "stun_duration": 1.5}
+		},
+		{
+			"id": "n_execute",
+			"group_id": "offense",
+			"pos": {"x": -100.0, "y": 240.0},
+			"name_key": "Execute",
+			"desc_key": "Massive damage to low-health targets.",
+			"icon_path": "",
+			"style": {"preset": "node_default", "overrides": {}},
+			"unlock": {"cost": {"type": "sp", "value": 3}, "requires": ["n_whirlwind"]},
+			"payload": {"effect_id": "execute", "hp_threshold": 0.3}
+		},
+		{
+			"id": "n_berserker",
+			"group_id": "offense",
+			"pos": {"x": 0.0, "y": 360.0},
+			"name_key": "Berserker Rage",
+			"desc_key": "Enter a rage, boosting attack speed and damage.",
+			"icon_path": "",
+			"style": {"preset": "node_default", "overrides": {}},
+			"unlock": {"cost": {"type": "sp", "value": 5}, "requires": ["n_execute", "n_charge"]},
+			"payload": {"effect_id": "berserker_rage", "duration": 10.0}
+		},
+		{
+			"id": "n_shield_block",
+			"group_id": "defense",
+			"pos": {"x": 300.0, "y": 0.0},
+			"name_key": "Shield Block",
+			"desc_key": "Block incoming attacks with your shield.",
+			"icon_path": "",
+			"style": {"preset": "node_default", "overrides": {}},
+			"unlock": {"cost": {"type": "sp", "value": 1}, "requires": []},
+			"payload": {"effect_id": "shield_block", "block_chance": 0.25}
+		},
+		{
+			"id": "n_fortify",
+			"group_id": "defense",
+			"pos": {"x": 300.0, "y": 120.0},
+			"name_key": "Fortify",
+			"desc_key": "Increase armor rating by 20%.",
+			"icon_path": "",
+			"style": {"preset": "node_default", "overrides": {}},
+			"unlock": {"cost": {"type": "sp", "value": 2}, "requires": ["n_shield_block"]},
+			"payload": {"effect_id": "fortify", "armor_bonus": 0.2}
+		},
+		{
+			"id": "n_iron_will",
+			"group_id": "defense",
+			"pos": {"x": 300.0, "y": 240.0},
+			"name_key": "Iron Will",
+			"desc_key": "Become immune to stun and knockback.",
+			"icon_path": "",
+			"style": {"preset": "node_default", "overrides": {}},
+			"unlock": {"cost": {"type": "sp", "value": 3}, "requires": ["n_fortify"]},
+			"payload": {"effect_id": "iron_will"}
+		}
+	],
+	"edges": [
+		{"from": "n_power_strike", "to": "n_whirlwind", "style_preset": "edge_default"},
+		{"from": "n_power_strike", "to": "n_charge", "style_preset": "edge_default"},
+		{"from": "n_whirlwind", "to": "n_execute", "style_preset": "edge_default"},
+		{"from": "n_charge", "to": "n_berserker", "style_preset": "edge_default"},
+		{"from": "n_execute", "to": "n_berserker", "style_preset": "edge_default"},
+		{"from": "n_shield_block", "to": "n_fortify", "style_preset": "edge_default"},
+		{"from": "n_fortify", "to": "n_iron_will", "style_preset": "edge_default"}
+	],
+	"editor_state": {
+		"camera": {"x": 100.0, "y": 150.0, "zoom": 1.0},
+		"grid": {"enabled": true, "size": 32, "snap": true},
+		"selection": {"last_selected_node_id": ""},
+		"notes": ""
+	},
+	"draft": {
+		"unused_nodes": [],
+		"guides": []
+	}
+}

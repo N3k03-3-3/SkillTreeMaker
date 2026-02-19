@@ -11,6 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.0] - 2026-02-20
+
+### Added
+
+#### Phase 6: 拡張機能
+- プレビューモード: エディタ内でランタイム描画をテスト（Preview/Edit トグル）
+- `SkillTreeViewer.load_pack_from_data()`: メモリ内データからの直接初期化（プレビュー用）
+- `_initialize_from_data()` / `_reset_animation_states()`: 初期化ロジックの DRY リファクタ
+- サンプルパック `examples/warrior_pack`: RPG 戦士クラス（8ノード・7エッジ・2グループ）
+- プレビュー中の編集系ボタン一括無効化
+
+---
+
 ## [0.6.0] - 2026-02-20
 
 ### Added
@@ -118,7 +131,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/N3k03-3-3/SkillTreeMaker/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/N3k03-3-3/SkillTreeMaker/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/N3k03-3-3/SkillTreeMaker/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/N3k03-3-3/SkillTreeMaker/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/N3k03-3-3/SkillTreeMaker/compare/v0.1.0...v0.5.0
 [0.1.0]: https://github.com/N3k03-3-3/SkillTreeMaker/releases/tag/v0.1.0
