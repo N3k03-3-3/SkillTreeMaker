@@ -222,6 +222,11 @@ SkillTreeMaker/
 │   │   ├── theme_resolver.gd       # テーマ解決・保存
 │   │   ├── validator.gd            # 構造バリデーション
 │   │   └── runtime_exporter.gd     # runtime.json 生成
+│   ├── runtime/                    # ゲームランタイム層
+│   │   ├── pack_loader.gd          # Pack 読み込み
+│   │   ├── skill_tree_state.gd     # 状態管理・セーブ/ロード
+│   │   ├── skill_tree_viewer.gd    # ツリー描画・操作 UI
+│   │   └── node_animation_state.gd # ノードアニメーション
 │   └── ui/                         # UI 層
 │       ├── skill_tree_maker_dock.gd # メインコーディネータ
 │       ├── canvas_view.gd          # キャンバス描画
@@ -276,10 +281,13 @@ SkillTreeMaker/
 - [x] グループ管理（追加・削除・ノード移動）
 - [x] テーマプロパティ編集・保存
 
-### Phase 5: 拡張機能（未着手）
-- [ ] SkillTreeViewer ランタイム実装
-- [ ] PackLoader 実装
-- [ ] アニメーションシステム
+### Phase 5: ランタイム機能 ✅
+- [x] PackLoader 実装（runtime.json + theme.json 読み込み）
+- [x] SkillTreeState 実装（状態管理・serialize/deserialize）
+- [x] SkillTreeViewer 実装（Control ベース描画・パン/ズーム・説明パネル）
+- [x] アニメーションシステム（アンロック・ホバー・パルス・エッジ遷移）
+
+### Phase 6: 拡張機能（未着手）
 - [ ] プレビューモード
 - [ ] サンプルパック作成
 - [ ] ドキュメント整備
@@ -309,4 +317,4 @@ SkillTreeMaker/
 ---
 
 **Author**: nekosan
-**Last Updated**: 2026-02-18
+**Last Updated**: 2026-02-20

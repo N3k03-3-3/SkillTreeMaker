@@ -11,6 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.0] - 2026-02-20
+
+### Added
+
+#### Phase 5: ランタイム機能
+- `PackLoader`: runtime.json + theme.json の一括読み込み（スキーマバージョンチェック付き）
+- `SkillTreeState`: ノード状態管理（LOCKED / CAN_UNLOCK / UNLOCKED）、requires チェック、serialize/deserialize
+- `SkillTreeViewer`: Control ベースのスキルツリー描画（パン/ズーム、説明パネル、ダブルクリックアンロック）
+- `NodeAnimationState`: ノード単位アニメーション値管理
+- アンロックアニメーション（スケール膨張→収縮 + 白フラッシュ）
+- ホバーエフェクト（lerp スケール遷移）
+- CAN_UNLOCK パルス（sin 波で枠 alpha 変調）
+- エッジ活性化アニメーション（locked→active 色遷移）
+- `set_process(false)` によるアイドル時パフォーマンス最適化
+
+---
+
 ## [0.5.0] - 2026-02-18
 
 ### Added
@@ -101,6 +118,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/N3k03-3-3/SkillTreeMaker/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/N3k03-3-3/SkillTreeMaker/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/N3k03-3-3/SkillTreeMaker/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/N3k03-3-3/SkillTreeMaker/compare/v0.1.0...v0.5.0
 [0.1.0]: https://github.com/N3k03-3-3/SkillTreeMaker/releases/tag/v0.1.0
