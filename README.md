@@ -84,6 +84,8 @@ Godot Engine 用の汎用スキルツリーGUIメーカー
 
 | ドキュメント | 説明 | 対象 |
 |-------------|------|------|
+| [API リファレンス](document/api_reference.md) | ランタイム API 仕様 | 全員必読 |
+| [使い方ガイド](document/usage_guide.md) | ゲーム統合ガイド | 全員必読 |
 | [コーディング規約](document/coding_standards.md) | GDScript コーディング標準 | 全員必読 |
 | [Programmer Guardrails](.agent/skills/programmer/SKILL.md) | 実装時の必須チェックリスト | プログラマー |
 | [Code Reviewer Guardrails](.agent/skills/code_reviewer/SKILL.md) | レビュー基準とフロー | レビュアー |
@@ -239,6 +241,8 @@ SkillTreeMaker/
 │   ├── 0.作成仕様
 │   ├── 1.フォルダ仕様
 │   ├── 2.Godot EditorPlugin クラス設計
+│   ├── api_reference.md            # ランタイム API リファレンス
+│   ├── usage_guide.md              # 使い方ガイド
 │   └── coding_standards.md
 ├── godot-mcp/                      # MCP サーバー
 ├── .gitignore
@@ -291,9 +295,9 @@ SkillTreeMaker/
 - [x] プレビューモード（エディタ内でランタイム描画をテスト）
 - [x] サンプルパック（`examples/warrior_pack`）
 
-### Phase 7: ドキュメント整備（未着手）
-- [ ] API リファレンス
-- [ ] 使い方ガイド
+### Phase 7: ドキュメント整備 ✅
+- [x] API リファレンス（`document/api_reference.md`）
+- [x] 使い方ガイド（`document/usage_guide.md`）
 
 ---
 
@@ -320,4 +324,4 @@ SkillTreeMaker/
 ---
 
 **Author**: nekosan
-**Last Updated**: 2026-02-20
+**Last Updated**: 2026-02-21

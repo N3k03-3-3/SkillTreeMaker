@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [0.8.0] - 2026-02-21
+
+### Added
+
+#### Phase 7: ドキュメント整備
+- API リファレンス（`document/api_reference.md`）: 全ランタイムクラスのシグナル・列挙型・メソッド・データフォーマット
+- 使い方ガイド（`document/usage_guide.md`）: クイックスタート・ゲーム統合・アンロック実装・セーブ/ロード・シグナル連携・カスタマイズ・トラブルシューティング
 
 ---
 
@@ -131,7 +137,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/N3k03-3-3/SkillTreeMaker/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/N3k03-3-3/SkillTreeMaker/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/N3k03-3-3/SkillTreeMaker/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/N3k03-3-3/SkillTreeMaker/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/N3k03-3-3/SkillTreeMaker/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/N3k03-3-3/SkillTreeMaker/compare/v0.1.0...v0.5.0
