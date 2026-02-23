@@ -30,6 +30,12 @@ signal group_added(group_id: String)
 ## グループが削除されたとき
 signal group_removed(group_id: String)
 
+## グループエッジが追加されたとき
+signal group_edge_added(from_id: String, to_id: String)
+
+## グループエッジが削除されたとき
+signal group_edge_removed(from_id: String, to_id: String)
+
 ## モデルデータが変更されたとき（汎用）
 signal model_changed()
 
@@ -41,6 +47,38 @@ const SCHEMA_VERSION: int = 1
 
 ## デフォルトのグループ ID
 const DEFAULT_GROUP_ID: String = "default"
+
+## NodeType: 通路ノード（小）
+const NODE_TYPE_MINOR: String = "minor"
+
+## NodeType: 名前付き重要ノード（中）
+const NODE_TYPE_NOTABLE: String = "notable"
+
+## NodeType: ゲームルール変更ノード（大）
+const NODE_TYPE_KEYSTONE: String = "keystone"
+
+## NodeType: 外部挿入可能なソケット
+const NODE_TYPE_SOCKET: String = "socket"
+
+## 有効な NodeType 値の配列
+const VALID_NODE_TYPES: Array[String] = ["minor", "notable", "keystone", "socket"]
+
+## NodeType ごとのデフォルトサイズ（ピクセル）
+const NODE_TYPE_DEFAULT_SIZES: Dictionary = {
+	"minor": 20.0,
+	"notable": 32.0,
+	"keystone": 44.0,
+	"socket": 24.0,
+}
+
+## アンロックルール: 個別 requires 指定（後方互換）
+const UNLOCK_RULE_REQUIRES: String = "requires"
+
+## アンロックルール: エントリポイントからの経路接続（POE型）
+const UNLOCK_RULE_PATH_CONNECTED: String = "path_connected"
+
+## 有効なアンロックルール値の配列
+const VALID_UNLOCK_RULES: Array[String] = ["requires", "path_connected"]
 
 
 # --- Public Variables ---
@@ -71,6 +109,9 @@ var _edges: Dictionary = {}
 
 ## グループデータ（キー: group_id, 値: Dictionary）
 var _groups: Dictionary = {}
+
+## グループエッジデータ（キー: "from_id->to_id", 値: Dictionary）
+var _group_edges: Dictionary = {}
 
 ## 次に自動採番する際のカウンタ
 var _next_node_number: int = 1
@@ -129,17 +170,19 @@ func add_node(node_data: Dictionary) -> bool:
 ##
 ## @param pos: ノード位置 (Vector2)
 ## @param group_id: 所属グループ ID (String)
+## @param node_type: ノード種別 (String) NODE_TYPE_MINOR/NOTABLE/KEYSTONE/SOCKET
 ## @return: 作成されたノードデータの Dictionary
-func create_node(pos: Vector2, group_id: String = DEFAULT_GROUP_ID) -> Dictionary:
+func create_node(pos: Vector2, group_id: String = DEFAULT_GROUP_ID, node_type: String = NODE_TYPE_MINOR) -> Dictionary:
 	var node_id: String = _generate_node_id()
 	var node_data: Dictionary = {
 		"id": node_id,
+		"node_type": node_type if VALID_NODE_TYPES.has(node_type) else NODE_TYPE_MINOR,
 		"group_id": group_id,
 		"pos": {"x": pos.x, "y": pos.y},
 		"name_key": "node." + node_id + ".name",
 		"desc_key": "node." + node_id + ".desc",
 		"icon_path": "",
-		"style": {"preset": "node_default", "overrides": {}},
+		"style": {"preset": "node_default", "color": "", "shape": "square", "size": "medium", "overrides": {}},
 		"unlock": {"cost": {"type": "gp", "value": 1}, "requires": []},
 		"payload": {},
 	}
@@ -367,11 +410,129 @@ func get_outgoing_edges(node_id: String) -> Array:
 	return result
 
 
+## グループ間エッジを追加する
+##
+## @param from_id: 接続元グループ ID (String)
+## @param to_id: 接続先グループ ID (String)
+## @return: 追加成功なら true
+func add_group_edge(from_id: String, to_id: String) -> bool:
+	if not _groups.has(from_id):
+		push_error("[SkillTreeModel] add_group_edge: from group not found: " + from_id)
+		return false
+	if not _groups.has(to_id):
+		push_error("[SkillTreeModel] add_group_edge: to group not found: " + to_id)
+		return false
+
+	var edge_key: String = from_id + "->" + to_id
+	if _group_edges.has(edge_key):
+		push_error("[SkillTreeModel] add_group_edge: group edge already exists: " + edge_key)
+		return false
+
+	_group_edges[edge_key] = {"from": from_id, "to": to_id}
+	group_edge_added.emit(from_id, to_id)
+	model_changed.emit()
+	return true
+
+
+## グループ間エッジを削除する
+##
+## @param from_id: 接続元グループ ID (String)
+## @param to_id: 接続先グループ ID (String)
+## @return: 削除成功なら true
+func remove_group_edge(from_id: String, to_id: String) -> bool:
+	var edge_key: String = from_id + "->" + to_id
+	if not _group_edges.has(edge_key):
+		push_error("[SkillTreeModel] remove_group_edge: group edge not found: " + edge_key)
+		return false
+
+	_group_edges.erase(edge_key)
+	group_edge_removed.emit(from_id, to_id)
+	model_changed.emit()
+	return true
+
+
+## 全グループエッジを取得する
+##
+## @return: 全グループエッジの配列
+func get_all_group_edges() -> Array:
+	return _group_edges.values()
+
+
+## エントリポイントを追加する
+##
+## tree_meta.entry_nodes 配列に {class_id, node_id} を追加する。
+## 同一 class_id が既に存在する場合はエラーを返す。
+##
+## @param class_id: クラス識別子 (String)
+## @param node_id: エントリノード ID (String)
+## @return: 追加成功なら true
+func add_entry_node(class_id: String, node_id: String) -> bool:
+	if class_id.is_empty():
+		push_error("[SkillTreeModel] add_entry_node: class_id is empty")
+		return false
+	if node_id.is_empty():
+		push_error("[SkillTreeModel] add_entry_node: node_id is empty")
+		return false
+
+	if not tree_meta.has("entry_nodes"):
+		tree_meta["entry_nodes"] = []
+
+	var entry_nodes: Array = tree_meta["entry_nodes"]
+	for entry: Dictionary in entry_nodes:
+		if entry.get("class_id", "") == class_id:
+			push_error("[SkillTreeModel] add_entry_node: class_id already exists: " + class_id)
+			return false
+
+	entry_nodes.append({"class_id": class_id, "node_id": node_id})
+	model_changed.emit()
+	return true
+
+
+## エントリポイントを削除する
+##
+## @param class_id: 削除するクラス識別子 (String)
+## @return: 削除成功なら true
+func remove_entry_node(class_id: String) -> bool:
+	if not tree_meta.has("entry_nodes"):
+		push_error("[SkillTreeModel] remove_entry_node: entry_nodes not found")
+		return false
+
+	var entry_nodes: Array = tree_meta["entry_nodes"]
+	for i: int in range(entry_nodes.size()):
+		if entry_nodes[i].get("class_id", "") == class_id:
+			entry_nodes.remove_at(i)
+			model_changed.emit()
+			return true
+
+	push_error("[SkillTreeModel] remove_entry_node: class_id not found: " + class_id)
+	return false
+
+
+## 全エントリポイントを取得する
+##
+## @return: [{class_id: String, node_id: String}, ...] の配列
+func get_entry_nodes() -> Array:
+	return tree_meta.get("entry_nodes", [])
+
+
+## 指定クラスのエントリノード ID を取得する
+##
+## @param class_id: クラス識別子 (String)
+## @return: エントリノード ID。見つからなければ空文字列
+func get_entry_node_for_class(class_id: String) -> String:
+	var entry_nodes: Array = tree_meta.get("entry_nodes", [])
+	for entry: Dictionary in entry_nodes:
+		if entry.get("class_id", "") == class_id:
+			return entry.get("node_id", "")
+	return ""
+
+
 ## モデルをクリアして初期状態にする
 func clear() -> void:
 	_nodes.clear()
 	_edges.clear()
 	_groups.clear()
+	_group_edges.clear()
 	pack_meta = {}
 	paths = {}
 	tree_meta = {}

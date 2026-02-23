@@ -22,6 +22,9 @@ signal group_add_requested()
 ## グループ削除がリクエストされたとき
 signal group_delete_requested(group_id: String)
 
+## グループへのノード追加がリクエストされたとき
+signal node_add_requested(group_id: String)
+
 
 # --- Constants ---
 
@@ -63,6 +66,9 @@ var _filter_timer: Timer = null
 
 ## グループ操作ボタンバー
 var _group_buttons_bar: HBoxContainer = null
+
+## ノード追加ボタン（グループ選択中のみ有効）
+var _btn_add_node: Button = null
 
 ## 選択同期中フラグ（無限ループ防止）
 var _syncing_selection: bool = false
@@ -188,6 +194,12 @@ func _build_ui() -> void:
 	btn_del_group.text = "- Group"
 	btn_del_group.pressed.connect(_on_delete_group_pressed)
 	_group_buttons_bar.add_child(btn_del_group)
+
+	_btn_add_node = Button.new()
+	_btn_add_node.text = "+ Node"
+	_btn_add_node.disabled = true
+	_btn_add_node.pressed.connect(_on_add_node_pressed)
+	_group_buttons_bar.add_child(_btn_add_node)
 
 	vbox.add_child(_group_buttons_bar)
 
@@ -345,10 +357,17 @@ func _on_tree_item_selected() -> void:
 		if _selection != null:
 			_selection.select_node(item_id)
 		node_selected_in_hierarchy.emit(item_id)
+		if _btn_add_node != null:
+			_btn_add_node.disabled = true
 	elif item_type == "group" and not item_id.is_empty():
 		if _selection != null:
 			_selection.select_group(item_id)
 		group_selected_in_hierarchy.emit(item_id)
+		if _btn_add_node != null:
+			_btn_add_node.disabled = false
+	else:
+		if _btn_add_node != null:
+			_btn_add_node.disabled = true
 
 	_syncing_selection = false
 
@@ -414,6 +433,23 @@ func _on_delete_group_pressed() -> void:
 		return
 
 	group_delete_requested.emit(item_id)
+
+
+## ノード追加ボタン押下（選択中グループにノードを追加する）
+func _on_add_node_pressed() -> void:
+	var selected_item: TreeItem = _tree.get_selected()
+	if selected_item == null:
+		return
+
+	var meta: Variant = selected_item.get_metadata(0)
+	if meta == null or not meta is Dictionary:
+		return
+
+	var group_id: String = meta.get("id", "")
+	if group_id.is_empty():
+		return
+
+	node_add_requested.emit(group_id)
 
 
 ## グループ追加・削除時

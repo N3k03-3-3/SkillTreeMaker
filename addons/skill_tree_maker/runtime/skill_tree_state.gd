@@ -51,21 +51,32 @@ var _runtime_data: Dictionary = {}
 ## ノードデータの ID 引き: {node_id: node_dict}
 var _nodes_by_id: Dictionary = {}
 
-## ツリーのエントリーノード ID
+## ツリーのエントリーノード ID（後方互換用）
 var _entry_node_id: String = ""
+
+## エントリポイント配列: [{class_id: String, node_id: String}]
+var _entry_nodes: Array = []
+
+## アンロックルール: SkillTreeModel.UNLOCK_RULE_REQUIRES or UNLOCK_RULE_PATH_CONNECTED
+var _unlock_rule: String = SkillTreeModel.UNLOCK_RULE_REQUIRES
+
+## エッジデータの無向隣接リスト: {node_id: [neighbor_id, ...]}
+var _adjacency: Dictionary = {}
 
 
 # --- Public Functions ---
 
 ## runtime データからステートを初期化する
 ##
-## すべてのノードを LOCKED にし、entry_node と requires が空のノードを CAN_UNLOCK にする。
+## すべてのノードを LOCKED にし、ルールに従って CAN_UNLOCK を計算する。
 ##
 ## @param runtime_data: runtime.json の Dictionary (Dictionary)
-func initialize(runtime_data: Dictionary) -> void:
+## @param class_id: エントリポイントのクラス識別子 (String)
+func initialize(runtime_data: Dictionary, class_id: String = "default") -> void:
 	_runtime_data = runtime_data
 	_node_states.clear()
 	_nodes_by_id.clear()
+	_adjacency.clear()
 
 	# ノードを ID 引きマップに展開
 	var nodes: Array = runtime_data.get("nodes", [])
@@ -76,9 +87,29 @@ func initialize(runtime_data: Dictionary) -> void:
 		_nodes_by_id[node_id] = node
 		_node_states[node_id] = NodeState.LOCKED
 
-	# エントリーノードを取得
+	# ツリーメタデータ読み込み
 	var tree: Dictionary = runtime_data.get("tree", {})
-	_entry_node_id = tree.get("entry_node_id", "")
+	_unlock_rule = tree.get("unlock_rule", SkillTreeModel.UNLOCK_RULE_REQUIRES)
+	_entry_nodes = tree.get("entry_nodes", [])
+
+	# 後方互換: entry_node_id → entry_nodes
+	if _entry_nodes.is_empty() and tree.has("entry_node_id"):
+		var old_entry: String = tree.get("entry_node_id", "")
+		if not old_entry.is_empty():
+			_entry_nodes = [{"class_id": "default", "node_id": old_entry}]
+
+	# 指定クラスのエントリノード ID を取得
+	_entry_node_id = ""
+	for entry: Dictionary in _entry_nodes:
+		if entry.get("class_id", "") == class_id:
+			_entry_node_id = entry.get("node_id", "")
+			break
+	# class_id が見つからなければ最初のエントリを使用
+	if _entry_node_id.is_empty() and not _entry_nodes.is_empty():
+		_entry_node_id = _entry_nodes[0].get("node_id", "")
+
+	# 無向隣接リストを構築（path_connected モード用）
+	_build_adjacency(runtime_data.get("edges", []))
 
 	# CAN_UNLOCK の初期計算
 	_recalculate_all_can_unlock()
@@ -179,9 +210,10 @@ func serialize() -> Dictionary:
 ##
 ## @param save_data: serialize() で生成された Dictionary (Dictionary)
 ## @param runtime_data: runtime.json の Dictionary (Dictionary)
-func deserialize(save_data: Dictionary, runtime_data: Dictionary) -> void:
+## @param class_id: エントリポイントのクラス識別子 (String)
+func deserialize(save_data: Dictionary, runtime_data: Dictionary, class_id: String = "default") -> void:
 	# まず初期化
-	initialize(runtime_data)
+	initialize(runtime_data, class_id)
 
 	# セーブデータからアンロック済みノードを復元
 	var unlocked: Array = save_data.get(SAVE_KEY_UNLOCKED, [])
@@ -210,6 +242,16 @@ func reset() -> void:
 ##
 ## @param unlocked_node_id: アンロックされたノード ID (String)
 func _refresh_dependents(unlocked_node_id: String) -> void:
+	if _unlock_rule == SkillTreeModel.UNLOCK_RULE_PATH_CONNECTED:
+		_refresh_dependents_path_connected(unlocked_node_id)
+	else:
+		_refresh_dependents_requires(unlocked_node_id)
+
+
+## requires モードでの後続ノード更新
+##
+## @param unlocked_node_id: アンロックされたノード ID (String)
+func _refresh_dependents_requires(unlocked_node_id: String) -> void:
 	for node_id: String in _nodes_by_id.keys():
 		if _node_states[node_id] != NodeState.LOCKED:
 			continue
@@ -228,8 +270,29 @@ func _refresh_dependents(unlocked_node_id: String) -> void:
 			node_state_changed.emit(node_id, NodeState.CAN_UNLOCK)
 
 
+## path_connected モードでの後続ノード更新
+##
+## アンロック済みノードに隣接する LOCKED ノードを CAN_UNLOCK にする。
+##
+## @param unlocked_node_id: アンロックされたノード ID (String)
+func _refresh_dependents_path_connected(unlocked_node_id: String) -> void:
+	var neighbors: Array = _adjacency.get(unlocked_node_id, [])
+	for neighbor_id: String in neighbors:
+		if _node_states.get(neighbor_id, NodeState.LOCKED) == NodeState.LOCKED:
+			_node_states[neighbor_id] = NodeState.CAN_UNLOCK
+			node_state_changed.emit(neighbor_id, NodeState.CAN_UNLOCK)
+
+
 ## 全ノードの CAN_UNLOCK 状態を再計算する
 func _recalculate_all_can_unlock() -> void:
+	if _unlock_rule == SkillTreeModel.UNLOCK_RULE_PATH_CONNECTED:
+		_recalculate_path_connected()
+	else:
+		_recalculate_requires_mode()
+
+
+## requires モードでの CAN_UNLOCK 再計算
+func _recalculate_requires_mode() -> void:
 	for node_id: String in _nodes_by_id.keys():
 		if _node_states.get(node_id, NodeState.LOCKED) != NodeState.LOCKED:
 			continue
@@ -248,6 +311,27 @@ func _recalculate_all_can_unlock() -> void:
 			_node_states[node_id] = NodeState.CAN_UNLOCK
 
 
+## path_connected モードでの CAN_UNLOCK 再計算
+##
+## エントリノードから、アンロック済みノードを経由して隣接するノードを CAN_UNLOCK にする。
+## エントリノード自体は常に CAN_UNLOCK。
+func _recalculate_path_connected() -> void:
+	# エントリノードが未アンロックなら CAN_UNLOCK にする
+	if not _entry_node_id.is_empty() and _nodes_by_id.has(_entry_node_id):
+		if _node_states.get(_entry_node_id, NodeState.LOCKED) == NodeState.LOCKED:
+			_node_states[_entry_node_id] = NodeState.CAN_UNLOCK
+
+	# アンロック済みノードに隣接する LOCKED ノードを CAN_UNLOCK にする
+	for node_id: String in _nodes_by_id.keys():
+		if _node_states.get(node_id, NodeState.LOCKED) != NodeState.UNLOCKED:
+			continue
+		# このアンロック済みノードの隣接ノードをチェック
+		var neighbors: Array = _adjacency.get(node_id, [])
+		for neighbor_id: String in neighbors:
+			if _node_states.get(neighbor_id, NodeState.LOCKED) == NodeState.LOCKED:
+				_node_states[neighbor_id] = NodeState.CAN_UNLOCK
+
+
 ## requires 配列の全ノードが UNLOCKED かチェックする
 ##
 ## @param requires: requires ノード ID の配列 (Array)
@@ -258,3 +342,22 @@ func _are_all_requires_unlocked(requires: Array) -> bool:
 		if _node_states.get(id, NodeState.LOCKED) != NodeState.UNLOCKED:
 			return false
 	return true
+
+
+## エッジデータから無向隣接リストを構築する
+##
+## @param edges: エッジ配列 (Array)
+func _build_adjacency(edges: Array) -> void:
+	_adjacency.clear()
+	for node_id: String in _nodes_by_id.keys():
+		_adjacency[node_id] = []
+
+	for edge: Dictionary in edges:
+		var from_id: String = edge.get("from", "")
+		var to_id: String = edge.get("to", "")
+		if from_id.is_empty() or to_id.is_empty():
+			continue
+		if _adjacency.has(from_id) and not (_adjacency[from_id] as Array).has(to_id):
+			(_adjacency[from_id] as Array).append(to_id)
+		if _adjacency.has(to_id) and not (_adjacency[to_id] as Array).has(from_id):
+			(_adjacency[to_id] as Array).append(from_id)

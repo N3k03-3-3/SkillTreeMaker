@@ -150,7 +150,8 @@ func create_pack(pack_root: String, pack_id: String, pack_name: String) -> Skill
 		"display_name_key": "tree." + pack_id + ".name",
 		"description_key": "tree." + pack_id + ".desc",
 		"theme_ref": THEME_FILE,
-		"entry_node_id": "",
+		"entry_nodes": [],
+		"unlock_rule": SkillTreeModel.UNLOCK_RULE_REQUIRES,
 		"layout": {
 			"coordinate_space": "group_local",
 			"groups": [],
@@ -270,6 +271,18 @@ func _build_model(pack_data: Dictionary, runtime_data: Dictionary) -> SkillTreeM
 	if not runtime_data.is_empty():
 		model.tree_meta = runtime_data.get("tree", {})
 
+		# 後方互換: entry_node_id → entry_nodes 変換
+		if not model.tree_meta.has("entry_nodes") and model.tree_meta.has("entry_node_id"):
+			var old_entry_id: String = model.tree_meta.get("entry_node_id", "")
+			if not old_entry_id.is_empty():
+				model.tree_meta["entry_nodes"] = [{"class_id": "default", "node_id": old_entry_id}]
+			else:
+				model.tree_meta["entry_nodes"] = []
+
+		# unlock_rule のデフォルト設定
+		if not model.tree_meta.has("unlock_rule"):
+			model.tree_meta["unlock_rule"] = SkillTreeModel.UNLOCK_RULE_REQUIRES
+
 		# グループを復元
 		var layout: Dictionary = model.tree_meta.get("layout", {})
 		var groups: Array = layout.get("groups", [])
@@ -279,9 +292,11 @@ func _build_model(pack_data: Dictionary, runtime_data: Dictionary) -> SkillTreeM
 			if not group_id.is_empty():
 				model.add_group(group_id, Vector2(center.get("x", 0.0), center.get("y", 0.0)))
 
-		# ノードを復元
+		# ノードを復元（node_type のデフォルト補完を含む）
 		var nodes: Array = runtime_data.get("nodes", [])
 		for node: Dictionary in nodes:
+			if not node.has("node_type"):
+				node["node_type"] = SkillTreeModel.NODE_TYPE_MINOR
 			model.add_node(node)
 
 		# エッジ復元前にノードの requires をクリア（add_edge が再構築するため）
@@ -297,6 +312,14 @@ func _build_model(pack_data: Dictionary, runtime_data: Dictionary) -> SkillTreeM
 			var style_preset: String = edge.get("style_preset", "edge_default")
 			if not from_id.is_empty() and not to_id.is_empty():
 				model.add_edge(from_id, to_id, style_preset)
+
+		# グループエッジを復元
+		var group_edges: Array = runtime_data.get("group_edges", [])
+		for ge: Dictionary in group_edges:
+			var from_id: String = ge.get("from", "")
+			var to_id: String = ge.get("to", "")
+			if not from_id.is_empty() and not to_id.is_empty():
+				model.add_group_edge(from_id, to_id)
 
 	return model
 
@@ -339,6 +362,12 @@ func _build_runtime_json(model: SkillTreeModel) -> Dictionary:
 		tree["layout"] = {}
 	tree["layout"]["groups"] = groups_array
 
+	# entry_nodes と unlock_rule を確実に出力
+	if not tree.has("entry_nodes"):
+		tree["entry_nodes"] = []
+	if not tree.has("unlock_rule"):
+		tree["unlock_rule"] = SkillTreeModel.UNLOCK_RULE_REQUIRES
+
 	# ノード配列
 	var nodes_array: Array = model.get_all_nodes()
 
@@ -350,6 +379,7 @@ func _build_runtime_json(model: SkillTreeModel) -> Dictionary:
 		"tree": tree,
 		"nodes": nodes_array,
 		"edges": edges_array,
+		"group_edges": model.get_all_group_edges(),
 	}
 
 

@@ -123,7 +123,10 @@ locale/
     "display_name_key": "tree.aries.name",
     "description_key": "tree.aries.desc",
     "theme_ref": "theme/theme.json",
-    "entry_node_id": "n_001",
+    "entry_nodes": [
+      { "class_id": "default", "node_id": "n_001" }
+    ],
+    "unlock_rule": "requires",
 
     "layout": {
       "coordinate_space": "group_local",
@@ -136,6 +139,7 @@ locale/
   "nodes": [
     {
       "id": "n_001",
+      "node_type": "minor",
       "group_id": "aries",
       "pos": { "x": 0, "y": 0 },
       "name_key": "node.n_001.name",
@@ -163,6 +167,7 @@ locale/
 
     {
       "id": "n_002",
+      "node_type": "notable",
       "group_id": "aries",
       "pos": { "x": 120, "y": 40 },
       "name_key": "node.n_002.name",

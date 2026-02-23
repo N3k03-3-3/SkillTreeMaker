@@ -79,6 +79,21 @@ var _btn_snap: CheckButton = null
 ## グループ名入力ダイアログ
 var _group_name_dialog: GroupNameDialog = null
 
+## スキルリポジトリ
+var _skill_repository: SkillRepository = null
+
+## スキル一覧パネル
+var _skill_list_panel: SkillListPanel = null
+
+## スキル作成・編集ダイアログ
+var _skill_creation_dialog: SkillCreationDialog = null
+
+## 現在読み込み中のスキルエントリ一覧
+var _skill_entries: Array[SkillEntry] = []
+
+## 左パネル VSplitContainer（HierarchyPanel + SkillListPanel）
+var _left_vsplit: VSplitContainer = null
+
 ## プレビューモードか
 var _is_preview_mode: bool = false
 
@@ -100,6 +115,7 @@ var _toolbar_edit_buttons: Array[BaseButton] = []
 ## ドック初期化。サービスのインスタンス化と UI 構築を行う
 func _ready() -> void:
 	_pack_repository = PackRepository.new()
+	_skill_repository = SkillRepository.new()
 	_selection = SelectionModel.new()
 	_tool_state = ToolState.new()
 	_theme_resolver = ThemeResolver.new()
@@ -207,6 +223,10 @@ func close_pack() -> void:
 		_hierarchy_panel.set_model(null, null)
 	if _inspector_panel != null:
 		_inspector_panel.unbind()
+	# スキルデータをクリア
+	_skill_entries.clear()
+	if _skill_list_panel != null:
+		_skill_list_panel.refresh(_skill_entries)
 	_set_status("Ready")
 
 
@@ -237,9 +257,15 @@ func _build_ui() -> void:
 	_hsplit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(_hsplit)
 
-	# 左: HierarchyPanel
+	# 左: VSplitContainer（HierarchyPanel + SkillListPanel）
+	_left_vsplit = VSplitContainer.new()
+	_hsplit.add_child(_left_vsplit)
+
 	_hierarchy_panel = HierarchyPanel.new()
-	_hsplit.add_child(_hierarchy_panel)
+	_left_vsplit.add_child(_hierarchy_panel)
+
+	_skill_list_panel = SkillListPanel.new()
+	_left_vsplit.add_child(_skill_list_panel)
 
 	# 中央: CanvasView
 	_canvas_view = CanvasView.new()
@@ -300,6 +326,17 @@ func _build_ui() -> void:
 	# シグナル接続: HierarchyPanel（グループ管理）
 	_hierarchy_panel.group_add_requested.connect(_on_group_add_requested)
 	_hierarchy_panel.group_delete_requested.connect(_on_group_delete_requested)
+	_hierarchy_panel.node_add_requested.connect(_on_hierarchy_node_add_requested)
+
+	# スキル作成ダイアログ
+	_skill_creation_dialog = SkillCreationDialog.new()
+	_skill_creation_dialog.skill_confirmed.connect(_on_skill_confirmed)
+	add_child(_skill_creation_dialog)
+
+	# シグナル接続: SkillListPanel
+	_skill_list_panel.skill_create_requested.connect(_on_skill_create_requested)
+	_skill_list_panel.skill_delete_requested.connect(_on_skill_delete_requested)
+	_skill_list_panel.skill_selected.connect(_on_skill_selected)
 
 	# ステータスバー
 	var status_bar: PanelContainer = PanelContainer.new()
@@ -402,6 +439,9 @@ func _bind_all_panels() -> void:
 
 	_sync_toolbar_to_tool_state()
 
+	# スキルデータの読み込みとパネル反映
+	_load_and_refresh_skills()
+
 
 ## モデルから ToolState を取得する（null の場合は新規作成）
 ##
@@ -421,6 +461,31 @@ func _sync_toolbar_to_tool_state() -> void:
 		_btn_grid.button_pressed = _tool_state.grid_enabled
 	if _btn_snap != null:
 		_btn_snap.button_pressed = _tool_state.snap_enabled
+
+
+## 現在のスキル一覧をリポジトリに保存する
+func _save_current_skills() -> void:
+	var dir_path: String = _get_skills_dir()
+	_skill_repository.save_skills(_skill_entries, dir_path)
+
+
+## スキルデータのディレクトリパスを取得する
+##
+## Pack が開かれていればその中の SkillLibrary、なければデフォルトパスを返す。
+##
+## @return: スキルデータの保存先ディレクトリパス
+func _get_skills_dir() -> String:
+	if not _current_pack_root.is_empty():
+		return _current_pack_root.path_join("SkillLibrary")
+	return SkillRepository.DEFAULT_SKILLS_DIR
+
+
+## スキル一覧を読み込んでパネルに反映する
+func _load_and_refresh_skills() -> void:
+	var dir_path: String = _get_skills_dir()
+	_skill_entries = _skill_repository.load_skills(dir_path)
+	if _skill_list_panel != null:
+		_skill_list_panel.refresh(_skill_entries)
 
 
 ## 選択中のノードまたはエッジを削除する
@@ -459,13 +524,20 @@ func _set_status(text: String) -> void:
 
 ## キャンバスからノード作成リクエスト
 ##
+## 選択中グループがあればそのグループにノードを追加する。
+##
 ## @param canvas_pos: ワールド座標上の位置 (Vector2)
 func _on_node_create_requested(canvas_pos: Vector2) -> void:
 	if _model == null:
 		_set_status("Open or create a pack first")
 		return
 
-	var node: Dictionary = _model.create_node(canvas_pos)
+	# 選択中グループがあればそこに追加、なければデフォルトグループ
+	var group_id: String = SkillTreeModel.DEFAULT_GROUP_ID
+	if _selection != null and _selection.is_group_selected():
+		group_id = _selection.selected_id
+
+	var node: Dictionary = _model.create_node(canvas_pos, group_id)
 	var node_id: String = node.get("id", "")
 	if node_id.is_empty():
 		_set_status("Error: Failed to create node")
@@ -705,6 +777,25 @@ func _on_group_delete_requested(group_id: String) -> void:
 		_set_status("Error: Could not delete group: " + group_id)
 
 
+## HierarchyPanel からのグループへのノード追加リクエスト
+##
+## 指定グループの中心位置にノードを生成する。
+##
+## @param group_id: ノードを追加するグループ ID (String)
+func _on_hierarchy_node_add_requested(group_id: String) -> void:
+	if _model == null:
+		_set_status("Open or create a pack first")
+		return
+
+	var node: Dictionary = _model.create_node(Vector2.ZERO, group_id)
+	var node_id: String = node.get("id", "")
+	if node_id.is_empty():
+		_set_status("Error: Failed to create node")
+		return
+	_selection.select_node(node_id)
+	_set_status("Node created in group '%s': %s" % [group_id, node_id])
+
+
 ## グループ名ダイアログからグループ ID 確定
 ##
 ## @param group_id: 入力されたグループ ID (String)
@@ -717,6 +808,63 @@ func _on_group_name_confirmed(group_id: String) -> void:
 		_set_status("Group created: " + group_id)
 	else:
 		_set_status("Error: Group already exists: " + group_id)
+
+
+## スキル作成リクエスト（SkillListPanel の「+ Skill」ボタン）
+func _on_skill_create_requested() -> void:
+	_skill_creation_dialog.show_dialog(null)
+
+
+## スキル削除リクエスト（SkillListPanel の「- Skill」ボタン）
+##
+## @param skill_id: 削除するスキル ID (String)
+func _on_skill_delete_requested(skill_id: String) -> void:
+	var idx: int = -1
+	for i: int in range(_skill_entries.size()):
+		if _skill_entries[i].id == skill_id:
+			idx = i
+			break
+
+	if idx < 0:
+		push_error("[SkillTreeMakerDock] _on_skill_delete_requested: skill not found: " + skill_id)
+		_set_status("Error: Skill not found: " + skill_id)
+		return
+
+	_skill_entries.remove_at(idx)
+	_save_current_skills()
+	_skill_list_panel.refresh(_skill_entries)
+	_set_status("Deleted skill: " + skill_id)
+
+
+## スキル選択（SkillListPanel のアイテム選択）
+##
+## @param skill_id: 選択されたスキル ID (String)
+func _on_skill_selected(skill_id: String) -> void:
+	_set_status("Skill selected: " + skill_id)
+
+
+## スキル確定（SkillCreationDialog の OK ボタン）
+##
+## 同一 ID のスキルが既に存在すれば上書き、なければ新規追加する。
+##
+## @param skill: 確定された SkillEntry
+func _on_skill_confirmed(skill: SkillEntry) -> void:
+	# 既存スキルの更新チェック
+	var found: bool = false
+	for i: int in range(_skill_entries.size()):
+		if _skill_entries[i].id == skill.id:
+			_skill_entries[i] = skill
+			found = true
+			break
+
+	if not found:
+		_skill_entries.append(skill)
+
+	_save_current_skills()
+	_skill_list_panel.refresh(_skill_entries)
+
+	var action: String = "Updated" if found else "Created"
+	_set_status(action + " skill: " + skill.id)
 
 
 ## Preview ボタン押下

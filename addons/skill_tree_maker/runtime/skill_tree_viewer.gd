@@ -29,6 +29,27 @@ signal node_hover_exited()
 ## ノードのデフォルト描画サイズ（ピクセル）
 const DEFAULT_NODE_SIZE: Vector2 = Vector2(64, 64)
 
+## NodeType: MINOR ノードサイズ（ピクセル）
+const NODE_TYPE_SIZE_MINOR: float = 20.0
+
+## NodeType: NOTABLE ノードサイズ（ピクセル）
+const NODE_TYPE_SIZE_NOTABLE: float = 32.0
+
+## NodeType: KEYSTONE ノードサイズ（ピクセル）
+const NODE_TYPE_SIZE_KEYSTONE: float = 44.0
+
+## NodeType: SOCKET ノードサイズ（ピクセル）
+const NODE_TYPE_SIZE_SOCKET: float = 24.0
+
+## KEYSTONE アンロックアニメーションの最大スケール
+const KEYSTONE_UNLOCK_MAX_SCALE: float = 1.5
+
+## NOTABLE パルスの周期（秒）
+const NOTABLE_PULSE_PERIOD: float = 1.0
+
+## KEYSTONE ノードの二重枠の外側オフセット
+const KEYSTONE_OUTER_BORDER_OFFSET: float = 4.0
+
 ## ノードの角丸半径
 const NODE_CORNER_RADIUS: float = 8.0
 
@@ -389,7 +410,8 @@ func _draw_edge(edge: Dictionary) -> void:
 	draw_line(from_canvas, to_canvas, edge_color, line_width)
 
 	# 矢印を描画
-	_draw_arrow(from_canvas, to_canvas, edge_color, line_width)
+	var to_node_type: String = to_node.get("node_type", "")
+	_draw_arrow(from_canvas, to_canvas, edge_color, line_width, to_node_type)
 
 
 ## エッジの矢印を描画する
@@ -398,13 +420,15 @@ func _draw_edge(edge: Dictionary) -> void:
 ## @param to_pos: 終点キャンバス座標 (Vector2)
 ## @param color: 矢印の色 (Color)
 ## @param line_width: 線幅 (float)
-func _draw_arrow(from_pos: Vector2, to_pos: Vector2, color: Color, line_width: float) -> void:
+## @param to_node_type: 終点ノードの種別 (String)
+func _draw_arrow(from_pos: Vector2, to_pos: Vector2, color: Color, line_width: float, to_node_type: String = "") -> void:
 	var dir: Vector2 = (to_pos - from_pos).normalized()
 	if dir.is_zero_approx():
 		return
 
 	# ノードの半径分手前に矢印を配置
-	var node_size: float = _get_themed_node_size() * _camera_zoom * 0.5
+	var target_size: float = _get_node_size_for_type(to_node_type) if not to_node_type.is_empty() else _get_themed_node_size()
+	var node_size: float = target_size * _camera_zoom * 0.5
 	var arrow_pos: Vector2 = to_pos - dir * node_size
 	var arrow_size: float = EDGE_ARROW_SIZE * _camera_zoom
 	var perp: Vector2 = Vector2(-dir.y, dir.x)
@@ -425,13 +449,16 @@ func _draw_nodes() -> void:
 
 ## 単一ノードを描画する
 ##
+## NodeType が設定されている場合は NodeType 別描画を使用する。
+##
 ## @param node: ノードデータ (Dictionary)
 func _draw_node(node: Dictionary) -> void:
 	var node_id: String = node.get("id", "")
 	var pos_data: Dictionary = node.get("pos", {})
 	var canvas_pos: Vector2 = _world_to_canvas(Vector2(pos_data.get("x", 0.0), pos_data.get("y", 0.0)))
 
-	var node_size: float = _get_themed_node_size()
+	var node_type: String = node.get("node_type", "")
+	var node_size: float = _get_node_size_for_type(node_type) if not node_type.is_empty() else _get_themed_node_size()
 
 	# アニメーションスケールを適用
 	var anim: NodeAnimationState = _anim_states.get(node_id) as NodeAnimationState
@@ -439,7 +466,6 @@ func _draw_node(node: Dictionary) -> void:
 
 	var scaled_size: float = node_size * anim_scale
 	var half_size: Vector2 = Vector2(scaled_size, scaled_size) * _camera_zoom * 0.5
-	var rect: Rect2 = Rect2(canvas_pos - half_size, half_size * 2.0)
 
 	# 状態に応じた色を取得
 	var colors: Dictionary = _get_node_colors(node_id)
@@ -464,11 +490,21 @@ func _draw_node(node: Dictionary) -> void:
 		var flash_intensity: float = 1.0 - anim.unlock_progress
 		bg_color = bg_color.lerp(Color.WHITE, flash_intensity * UNLOCK_FLASH_INTENSITY)
 
-	# 背景
-	draw_rect(rect, bg_color, true)
-
-	# 枠
-	draw_rect(rect, border_color, false, NODE_BORDER_WIDTH)
+	# NodeType 別描画
+	match node_type:
+		SkillTreeModel.NODE_TYPE_MINOR:
+			_draw_node_type_circle(canvas_pos, half_size, bg_color, border_color)
+		SkillTreeModel.NODE_TYPE_NOTABLE:
+			_draw_node_type_circle(canvas_pos, half_size, bg_color, border_color)
+		SkillTreeModel.NODE_TYPE_KEYSTONE:
+			_draw_node_type_keystone(canvas_pos, half_size, bg_color, border_color)
+		SkillTreeModel.NODE_TYPE_SOCKET:
+			_draw_node_type_socket(canvas_pos, half_size, bg_color, border_color)
+		_:
+			# レガシー: 矩形描画
+			var rect: Rect2 = Rect2(canvas_pos - half_size, half_size * 2.0)
+			draw_rect(rect, bg_color, true)
+			draw_rect(rect, border_color, false, NODE_BORDER_WIDTH)
 
 	# ラベル
 	var label: String = node.get("name_key", node_id)
@@ -484,6 +520,72 @@ func _draw_node(node: Dictionary) -> void:
 	var text_size: Vector2 = font.get_string_size(label, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
 	var text_pos: Vector2 = canvas_pos + Vector2(-text_size.x * 0.5, text_size.y * TEXT_VERTICAL_CENTER_RATIO)
 	draw_string(font, text_pos, label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color.WHITE)
+
+
+## 円形ノード描画（MINOR / NOTABLE 用）
+##
+## @param center: キャンバス中心座標 (Vector2)
+## @param half_size: 半径ベクトル (Vector2)
+## @param bg_color: 背景色 (Color)
+## @param border_color: 枠色 (Color)
+func _draw_node_type_circle(center: Vector2, half_size: Vector2, bg_color: Color, border_color: Color) -> void:
+	var radius: float = min(half_size.x, half_size.y)
+	draw_circle(center, radius, bg_color)
+	draw_arc(center, radius, 0.0, TAU, 32, border_color, NODE_BORDER_WIDTH)
+
+
+## KEYSTONE ノード描画（菱形、二重枠）
+##
+## @param center: キャンバス中心座標 (Vector2)
+## @param half_size: 半径ベクトル (Vector2)
+## @param bg_color: 背景色 (Color)
+## @param border_color: 枠色 (Color)
+func _draw_node_type_keystone(center: Vector2, half_size: Vector2, bg_color: Color, border_color: Color) -> void:
+	var top: Vector2 = center + Vector2(0.0, -half_size.y)
+	var right: Vector2 = center + Vector2(half_size.x, 0.0)
+	var bottom: Vector2 = center + Vector2(0.0, half_size.y)
+	var left_pt: Vector2 = center + Vector2(-half_size.x, 0.0)
+	var fill_points: PackedVector2Array = PackedVector2Array([top, right, bottom, left_pt])
+	draw_colored_polygon(fill_points, bg_color)
+	draw_polyline(PackedVector2Array([top, right, bottom, left_pt, top]), border_color, NODE_BORDER_WIDTH)
+	# 二重枠
+	var offset: float = KEYSTONE_OUTER_BORDER_OFFSET * _camera_zoom
+	var outer_half: Vector2 = half_size + Vector2(offset, offset)
+	var o_top: Vector2 = center + Vector2(0.0, -outer_half.y)
+	var o_right: Vector2 = center + Vector2(outer_half.x, 0.0)
+	var o_bottom: Vector2 = center + Vector2(0.0, outer_half.y)
+	var o_left: Vector2 = center + Vector2(-outer_half.x, 0.0)
+	draw_polyline(PackedVector2Array([o_top, o_right, o_bottom, o_left, o_top]), border_color, NODE_BORDER_WIDTH * 0.5)
+
+
+## SOCKET ノード描画（角丸四角形）
+##
+## @param center: キャンバス中心座標 (Vector2)
+## @param half_size: 半径ベクトル (Vector2)
+## @param bg_color: 背景色 (Color)
+## @param border_color: 枠色 (Color)
+func _draw_node_type_socket(center: Vector2, half_size: Vector2, bg_color: Color, border_color: Color) -> void:
+	var rect: Rect2 = Rect2(center - half_size, half_size * 2.0)
+	draw_rect(rect, bg_color, true)
+	draw_rect(rect, border_color, false, NODE_BORDER_WIDTH)
+
+
+## NodeType に基づくノードサイズを取得する
+##
+## @param node_type: ノード種別 (String)
+## @return: ノードサイズ（ピクセル）(float)
+func _get_node_size_for_type(node_type: String) -> float:
+	match node_type:
+		SkillTreeModel.NODE_TYPE_MINOR:
+			return NODE_TYPE_SIZE_MINOR
+		SkillTreeModel.NODE_TYPE_NOTABLE:
+			return NODE_TYPE_SIZE_NOTABLE
+		SkillTreeModel.NODE_TYPE_KEYSTONE:
+			return NODE_TYPE_SIZE_KEYSTONE
+		SkillTreeModel.NODE_TYPE_SOCKET:
+			return NODE_TYPE_SIZE_SOCKET
+		_:
+			return _get_themed_node_size()
 
 
 ## 説明パネルを描画する
@@ -700,11 +802,11 @@ func _canvas_to_world(canvas_pos: Vector2) -> Vector2:
 ## @param mouse_pos: マウス位置（キャンバスローカル座標）(Vector2)
 ## @return: ヒットしたノード ID。ヒットなしなら空文字列
 func _hit_test_node(mouse_pos: Vector2) -> String:
-	var node_size: float = _get_themed_node_size()
-
 	# 逆順（上に描画されたものを優先）
 	for i: int in range(_nodes.size() - 1, -1, -1):
 		var node: Dictionary = _nodes[i]
+		var node_type: String = node.get("node_type", "")
+		var node_size: float = _get_node_size_for_type(node_type) if not node_type.is_empty() else _get_themed_node_size()
 		var pos_data: Dictionary = node.get("pos", {})
 		var canvas_pos: Vector2 = _world_to_canvas(Vector2(pos_data.get("x", 0.0), pos_data.get("y", 0.0)))
 		var half_size: Vector2 = Vector2(node_size, node_size) * _camera_zoom * 0.5

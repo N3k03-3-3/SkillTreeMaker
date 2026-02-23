@@ -127,6 +127,13 @@ func is_node_selected() -> bool:
 	return selected_type == SelectionType.NODE
 
 
+## グループが選択されているか判定する
+##
+## @return: グループ選択中なら true
+func is_group_selected() -> bool:
+	return selected_type == SelectionType.GROUP
+
+
 ## エッジが選択されているか判定する
 ##
 ## @return: エッジ選択中なら true

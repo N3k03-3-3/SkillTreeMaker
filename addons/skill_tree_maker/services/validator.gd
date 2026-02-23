@@ -26,6 +26,9 @@ class ValidationReport extends RefCounted:
 	## エラー種別: エントリノード
 	const TYPE_ENTRY_NODE: String = "entry_node"
 
+	## エラー種別: 経路接続不可
+	const TYPE_PATH_DISCONNECTED: String = "path_disconnected"
+
 
 	# --- Public Variables ---
 
@@ -113,36 +116,78 @@ func validate(model: SkillTreeModel) -> ValidationReport:
 		report.add_error("invalid", "Model is null")
 		return report
 
-	check_entry_node(model, report)
+	check_entry_nodes(model, report)
 	check_missing_refs(model, report)
 	check_cycles(model, report)
 	check_unreachable(model, report)
+	check_path_connectivity(model, report)
 
 	return report
 
 
-## エントリノードの存在を検証する
+## エントリポイントの存在と整合性を検証する
 ##
-## tree_meta.entry_node_id が設定されていること、かつ該当ノードが存在することを確認する。
+## entry_nodes 配列の各エントリについてノード存在チェックを行う。
+## 後方互換: entry_nodes がなく entry_node_id がある場合も処理する。
 ##
 ## @param model: 検証対象 (SkillTreeModel)
 ## @param report: 結果を追記する ValidationReport (ValidationReport)
-func check_entry_node(model: SkillTreeModel, report: ValidationReport) -> void:
-	var entry_id: String = model.tree_meta.get("entry_node_id", "")
+func check_entry_nodes(model: SkillTreeModel, report: ValidationReport) -> void:
+	var entry_nodes: Array = model.tree_meta.get("entry_nodes", [])
 
-	if entry_id.is_empty():
+	# 後方互換: entry_node_id が存在する場合
+	if entry_nodes.is_empty() and model.tree_meta.has("entry_node_id"):
+		var old_id: String = model.tree_meta.get("entry_node_id", "")
+		if old_id.is_empty():
+			report.add_error(
+				ValidationReport.TYPE_ENTRY_NODE,
+				"Entry node ID is not set"
+			)
+			return
+		var node: Dictionary = model.get_node(old_id)
+		if node.is_empty():
+			report.add_error(
+				ValidationReport.TYPE_ENTRY_NODE,
+				"Entry node not found: " + old_id,
+				[old_id]
+			)
+		return
+
+	if entry_nodes.is_empty():
 		report.add_error(
 			ValidationReport.TYPE_ENTRY_NODE,
-			"Entry node ID is not set"
+			"No entry nodes defined"
 		)
 		return
 
-	var node: Dictionary = model.get_node(entry_id)
-	if node.is_empty():
-		report.add_error(
+	# "default" クラスの存在チェック
+	var has_default: bool = false
+	for entry: Dictionary in entry_nodes:
+		var class_id: String = entry.get("class_id", "")
+		var node_id: String = entry.get("node_id", "")
+
+		if class_id == "default":
+			has_default = true
+
+		if node_id.is_empty():
+			report.add_error(
+				ValidationReport.TYPE_ENTRY_NODE,
+				"Entry node ID is empty for class: " + class_id
+			)
+			continue
+
+		var node: Dictionary = model.get_node(node_id)
+		if node.is_empty():
+			report.add_error(
+				ValidationReport.TYPE_ENTRY_NODE,
+				"Entry node not found: " + node_id + " (class: " + class_id + ")",
+				[node_id]
+			)
+
+	if not has_default:
+		report.add_warning(
 			ValidationReport.TYPE_ENTRY_NODE,
-			"Entry node not found: " + entry_id,
-			[entry_id]
+			"No 'default' class entry node defined"
 		)
 
 
@@ -204,19 +249,62 @@ func check_cycles(model: SkillTreeModel, report: ValidationReport) -> void:
 
 ## 到達不能ノードを検証する
 ##
-## エントリノードから無向 BFS を実行し、到達できないノードを警告する。
+## 全エントリポイントから無向 BFS を実行し、到達できないノードを警告する。
 ## エントリノードが未設定・存在しない場合はスキップする。
 ##
 ## @param model: 検証対象 (SkillTreeModel)
 ## @param report: 結果を追記する ValidationReport (ValidationReport)
 func check_unreachable(model: SkillTreeModel, report: ValidationReport) -> void:
-	var entry_id: String = model.tree_meta.get("entry_node_id", "")
-	if entry_id.is_empty():
+	var start_ids: Array[String] = _collect_entry_node_ids(model)
+	if start_ids.is_empty():
 		return
 
-	if model.get_node(entry_id).is_empty():
+	var visited: Dictionary = _bfs_from_entries(model, start_ids)
+
+	for node_id: String in model.get_all_node_ids():
+		if not visited.has(node_id):
+			report.add_warning(
+				ValidationReport.TYPE_UNREACHABLE,
+				"Node unreachable from entry: " + node_id,
+				[node_id]
+			)
+
+
+## path_connected モード時の経路接続性を検証する
+##
+## unlock_rule が "path_connected" の場合のみ実行する。
+## 全エントリポイントから BFS でグラフを探索し、到達不可能なノードを警告する。
+##
+## @param model: 検証対象 (SkillTreeModel)
+## @param report: 結果を追記する ValidationReport (ValidationReport)
+func check_path_connectivity(model: SkillTreeModel, report: ValidationReport) -> void:
+	var unlock_rule: String = model.tree_meta.get("unlock_rule", SkillTreeModel.UNLOCK_RULE_REQUIRES)
+	if unlock_rule != SkillTreeModel.UNLOCK_RULE_PATH_CONNECTED:
 		return
 
+	var start_ids: Array[String] = _collect_entry_node_ids(model)
+	if start_ids.is_empty():
+		return
+
+	var visited: Dictionary = _bfs_from_entries(model, start_ids)
+
+	for node_id: String in model.get_all_node_ids():
+		if not visited.has(node_id):
+			report.add_warning(
+				ValidationReport.TYPE_PATH_DISCONNECTED,
+				"Node not path-connected from any entry: " + node_id,
+				[node_id]
+			)
+
+
+# --- Private Functions ---
+
+## エントリポイントから無向 BFS を実行し、到達可能なノードの集合を返す
+##
+## @param model: 対象モデル (SkillTreeModel)
+## @param start_ids: 開始ノード ID の配列 (Array[String])
+## @return: 到達可能なノード ID をキーとする Dictionary
+func _bfs_from_entries(model: SkillTreeModel, start_ids: Array[String]) -> Dictionary:
 	# 無向隣接リスト構築（エッジの両方向を登録）
 	var adjacency: Dictionary = {}
 	for node_id: String in model.get_all_node_ids():
@@ -230,10 +318,14 @@ func check_unreachable(model: SkillTreeModel, report: ValidationReport) -> void:
 		if adjacency.has(to_id):
 			adjacency[to_id].append(from_id)
 
-	# BFS
+	# 全エントリポイントから BFS
 	var visited: Dictionary = {}
-	var queue: Array[String] = [entry_id]
-	visited[entry_id] = true
+	var queue: Array[String] = []
+	for start_id: String in start_ids:
+		if model.get_node(start_id).is_empty():
+			continue
+		visited[start_id] = true
+		queue.append(start_id)
 
 	while queue.size() > 0:
 		var current: String = queue.pop_front()
@@ -242,17 +334,29 @@ func check_unreachable(model: SkillTreeModel, report: ValidationReport) -> void:
 				visited[neighbor] = true
 				queue.append(neighbor)
 
-	# 到達不能ノードを警告
-	for node_id: String in model.get_all_node_ids():
-		if not visited.has(node_id):
-			report.add_warning(
-				ValidationReport.TYPE_UNREACHABLE,
-				"Node unreachable from entry: " + node_id,
-				[node_id]
-			)
+	return visited
 
 
-# --- Private Functions ---
+## モデルからエントリノード ID を収集する（後方互換対応）
+##
+## @param model: 対象モデル (SkillTreeModel)
+## @return: エントリノード ID の配列
+func _collect_entry_node_ids(model: SkillTreeModel) -> Array[String]:
+	var ids: Array[String] = []
+	var entry_nodes: Array = model.tree_meta.get("entry_nodes", [])
+	for entry: Dictionary in entry_nodes:
+		var nid: String = entry.get("node_id", "")
+		if not nid.is_empty() and not ids.has(nid):
+			ids.append(nid)
+
+	# 後方互換: entry_node_id
+	if ids.is_empty() and model.tree_meta.has("entry_node_id"):
+		var old_id: String = model.tree_meta.get("entry_node_id", "")
+		if not old_id.is_empty():
+			ids.append(old_id)
+
+	return ids
+
 
 ## DFS で循環参照をチェックする（3色マーキング方式）
 ##
