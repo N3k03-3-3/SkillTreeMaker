@@ -113,8 +113,9 @@ func save_pack(model: SkillTreeModel, pack_root: String) -> bool:
 ## @param pack_root: Pack ルートディレクトリのパス (String)
 ## @param pack_id: Pack の識別子 (String)
 ## @param pack_name: Pack の表示名 (String)
+## @param theme_preset: テーマプリセット名 (String)。デフォルトは "default"
 ## @return: 作成された SkillTreeModel。失敗時は null
-func create_pack(pack_root: String, pack_id: String, pack_name: String) -> SkillTreeModel:
+func create_pack(pack_root: String, pack_id: String, pack_name: String, theme_preset: String = ThemePresetLibrary.PRESET_DEFAULT) -> SkillTreeModel:
 	if pack_root.is_empty():
 		push_error("[PackRepository] create_pack: pack_root is empty")
 		return null
@@ -170,8 +171,8 @@ func create_pack(pack_root: String, pack_id: String, pack_name: String) -> Skill
 		push_error("[PackRepository] create_pack: failed to save initial pack")
 		return null
 
-	# デフォルトの theme.json も作成
-	_create_default_theme(pack_root)
+	# テーマプリセットで theme.json を作成
+	_create_theme_from_preset(pack_root, theme_preset)
 
 	return model
 
@@ -190,6 +191,9 @@ func pack_exists(pack_root: String) -> bool:
 
 ## ディレクトリ構造を保証する
 ##
+## 必須・推奨ディレクトリを作成し、theme.json が存在しない場合は
+## デフォルトプリセットで初期化する。
+##
 ## @param pack_root: Pack ルートディレクトリのパス (String)
 func _ensure_directory_structure(pack_root: String) -> void:
 	if not DirAccess.dir_exists_absolute(pack_root):
@@ -204,6 +208,14 @@ func _ensure_directory_structure(pack_root: String) -> void:
 		var dir_path: String = pack_root.path_join(dir_name)
 		if not DirAccess.dir_exists_absolute(dir_path):
 			DirAccess.make_dir_recursive_absolute(dir_path)
+
+	# theme.json が存在しない場合はデフォルトプリセットで作成
+	var theme_path: String = pack_root.path_join(THEME_FILE)
+	if not FileAccess.file_exists(theme_path):
+		var default_theme: Dictionary = ThemePresetLibrary.create_preset(
+			ThemePresetLibrary.PRESET_DEFAULT
+		)
+		_write_json(theme_path, default_theme)
 
 
 ## JSON ファイルを読み込む
@@ -385,43 +397,23 @@ func _build_runtime_json(model: SkillTreeModel) -> Dictionary:
 
 ## デフォルトの theme.json を作成する
 ##
+## theme.json が存在しない場合に ThemePresetLibrary の default プリセットで生成する。
+##
 ## @param pack_root: Pack ルートディレクトリのパス (String)
 func _create_default_theme(pack_root: String) -> void:
+	_create_theme_from_preset(pack_root, ThemePresetLibrary.PRESET_DEFAULT)
+
+
+## 指定プリセットで theme.json を作成する
+##
+## theme.json が既に存在する場合は何もしない。
+##
+## @param pack_root: Pack ルートディレクトリのパス (String)
+## @param preset_name: テーマプリセット名 (String)
+func _create_theme_from_preset(pack_root: String, preset_name: String) -> void:
 	var theme_path: String = pack_root.path_join(THEME_FILE)
 	if FileAccess.file_exists(theme_path):
 		return
 
-	var default_theme: Dictionary = {
-		"schema_version": SCHEMA_VERSION,
-		"background": {
-			"texture": "",
-			"tint": "#FFFFFF",
-			"parallax": {"enabled": false},
-		},
-		"window": {
-			"frame_9slice": "",
-			"padding": {"l": 24, "t": 24, "r": 24, "b": 24},
-		},
-		"node_presets": {
-			"node_default": {
-				"base_texture": "",
-				"size": 48,
-				"states": {
-					"locked": {"overlay": "", "glow": false},
-					"can_unlock": {"overlay": "", "glow": true, "glow_color": "#88CCFF"},
-					"unlocked": {"overlay": "", "glow": true, "glow_color": "#FFD27D"},
-				},
-			},
-		},
-		"edge_presets": {
-			"edge_default": {
-				"width": 3,
-				"color_locked": "#445066",
-				"color_active": "#88CCFF",
-			},
-		},
-		"effects": {},
-		"fonts": {},
-	}
-
-	_write_json(theme_path, default_theme)
+	var theme_data: Dictionary = ThemePresetLibrary.create_preset(preset_name)
+	_write_json(theme_path, theme_data)

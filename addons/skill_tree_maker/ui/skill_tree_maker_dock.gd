@@ -134,7 +134,8 @@ func _ready() -> void:
 ## @param pack_id: Pack の識別子 (String)
 ## @param pack_name: Pack の表示名 (String)
 ## @param out_dir: 出力先ディレクトリ (String)。空なら DEFAULT_PACKS_DIR/<pack_id>
-func new_pack(pack_id: String, pack_name: String, out_dir: String = "") -> void:
+## @param theme_preset: テーマプリセット名 (String)。デフォルトは "default"
+func new_pack(pack_id: String, pack_name: String, out_dir: String = "", theme_preset: String = ThemePresetLibrary.PRESET_DEFAULT) -> void:
 	if pack_id.is_empty():
 		push_error("[SkillTreeMakerDock] new_pack: pack_id is empty")
 		_set_status("Error: Pack ID is empty")
@@ -149,7 +150,7 @@ func new_pack(pack_id: String, pack_name: String, out_dir: String = "") -> void:
 		_set_status("Pack already exists: " + pack_root)
 		return
 
-	_model = _pack_repository.create_pack(pack_root, pack_id, pack_name)
+	_model = _pack_repository.create_pack(pack_root, pack_id, pack_name, theme_preset)
 	if _model == null:
 		_set_status("Error: Failed to create pack")
 		return
@@ -666,8 +667,9 @@ func _on_context_connect_from(node_id: String) -> void:
 ## @param pack_id: Pack ID (String)
 ## @param pack_name: Pack 名 (String)
 ## @param out_dir: 出力ディレクトリ (String)
-func _on_pack_creation_confirmed(pack_id: String, pack_name: String, out_dir: String) -> void:
-	new_pack(pack_id, pack_name, out_dir)
+## @param theme_preset: テーマプリセット名 (String)
+func _on_pack_creation_confirmed(pack_id: String, pack_name: String, out_dir: String, theme_preset: String) -> void:
+	new_pack(pack_id, pack_name, out_dir, theme_preset)
 
 
 ## New Pack ボタン押下

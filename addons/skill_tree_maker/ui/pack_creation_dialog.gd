@@ -11,7 +11,7 @@ extends ConfirmationDialog
 # --- Signals ---
 
 ## Pack 作成が確定されたとき
-signal pack_confirmed(pack_id: String, pack_name: String, out_dir: String)
+signal pack_confirmed(pack_id: String, pack_name: String, out_dir: String, theme_preset: String)
 
 
 # --- Constants ---
@@ -39,6 +39,9 @@ var _name_edit: LineEdit = null
 
 ## 出力ディレクトリ入力フィールド
 var _dir_edit: LineEdit = null
+
+## テーマプリセット選択
+var _theme_preset_option: OptionButton = null
 
 ## エラー表示ラベル
 var _error_label: Label = null
@@ -101,6 +104,13 @@ func _build_content() -> void:
 	_dir_edit.text_changed.connect(_on_dir_text_changed)
 	vbox.add_child(_dir_edit)
 
+	# テーマテンプレート
+	vbox.add_child(_create_label("Theme Template"))
+	_theme_preset_option = OptionButton.new()
+	for preset_name: String in ThemePresetLibrary.ALL_PRESET_NAMES:
+		_theme_preset_option.add_item(preset_name)
+	vbox.add_child(_theme_preset_option)
+
 	# エラーラベル
 	_error_label = Label.new()
 	_error_label.add_theme_color_override("font_color", ERROR_COLOR)
@@ -126,6 +136,8 @@ func _reset_fields() -> void:
 		_name_edit.text = ""
 	if _dir_edit != null:
 		_dir_edit.text = DEFAULT_OUTPUT_DIR
+	if _theme_preset_option != null:
+		_theme_preset_option.select(0)
 	if _error_label != null:
 		_error_label.text = ""
 	_dir_manually_edited = false
@@ -185,5 +197,7 @@ func _on_confirmed() -> void:
 	var pack_id: String = _id_edit.text.strip_edges()
 	var pack_name: String = _name_edit.text.strip_edges()
 	var out_dir: String = _dir_edit.text.strip_edges()
+	var selected_index: int = _theme_preset_option.selected
+	var theme_preset: String = _theme_preset_option.get_item_text(selected_index)
 
-	pack_confirmed.emit(pack_id, pack_name, out_dir)
+	pack_confirmed.emit(pack_id, pack_name, out_dir, theme_preset)

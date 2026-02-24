@@ -13,6 +13,9 @@ extends PanelContainer
 ## プロパティが編集されたとき
 signal property_changed(property_name: String, new_value: Variant)
 
+## テーマデータが変更されたとき
+signal theme_changed(theme_data: Dictionary)
+
 
 # --- Constants ---
 
@@ -24,6 +27,9 @@ const SECTION_INDENT: int = 8
 
 ## ラベル幅の比率（行全体に対するラベルの割合）
 const LABEL_WIDTH_RATIO: float = 0.4
+
+## セクションラベルの文字色
+const SECTION_LABEL_COLOR: Color = Color(0.6, 0.8, 1.0, 1.0)
 
 
 # --- Private Variables ---
@@ -51,6 +57,9 @@ var _properties_container: VBoxContainer = null
 
 ## テーマリゾルバへの参照
 var _theme_resolver: ThemeResolver = null
+
+## テーマエディタパネル
+var _theme_editor_panel: ThemeEditorPanel = null
 
 
 # --- Built-in Functions ---
@@ -83,10 +92,22 @@ func bind_selection(model: SkillTreeModel, selection: SelectionModel) -> void:
 ## ThemeResolver を設定する
 ##
 ## bind_selection の後に呼ぶこと。
+## ThemeEditorPanel にも resolver を伝播する。
 ##
 ## @param theme_resolver: テーマリゾルバ (ThemeResolver)
 func bind_theme_resolver(theme_resolver: ThemeResolver) -> void:
 	_theme_resolver = theme_resolver
+	if _theme_editor_panel != null:
+		_theme_editor_panel.bind_theme_resolver(_theme_resolver)
+
+
+## ThemeResolver を設定する（set_theme_resolver エイリアス）
+##
+## bind_theme_resolver と同等の機能を提供する。
+##
+## @param resolver: テーマリゾルバ (ThemeResolver)
+func set_theme_resolver(resolver: ThemeResolver) -> void:
+	bind_theme_resolver(resolver)
 
 
 ## ツリー全体のプロパティ（pack_meta, unlock_rule, entry_nodes）を表示する
@@ -689,91 +710,26 @@ func edit_edge_props() -> void:
 
 ## テーマプロパティを表示する（ツリープロパティに追記する形で呼ばれる）
 ##
-## ThemeResolver が保持するテーマデータを編集する。
+## ThemeEditorPanel を使用してテーマデータを編集する。
 ## 変更はインメモリに即時反映され、Save Pack 時にディスクへ書き出される。
 ## _on_selection_changed の "tree" 分岐で edit_tree_props() の後に呼ばれるため、
 ## _clear_properties() / _show_properties() は呼ばない。
+## ThemeEditorPanel は生成後キャッシュし、選択切替のたびに再生成しない。
 func edit_theme_props() -> void:
 	if _theme_resolver == null or not _theme_resolver.is_loaded():
 		_properties_container.add_child(
 			_create_readonly_row("Theme", "(not loaded)"))
 		return
 
-	var theme_data: Dictionary = _theme_resolver.get_theme_data()
+	# ThemeEditorPanel を初回のみ生成してキャッシュ
+	if _theme_editor_panel == null:
+		_theme_editor_panel = ThemeEditorPanel.new()
+		_theme_editor_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if not _theme_editor_panel.theme_changed.is_connected(_on_theme_editor_changed):
+			_theme_editor_panel.theme_changed.connect(_on_theme_editor_changed)
 
-	# --- Background ---
-	# キーが存在しない場合は theme_data に直接登録して参照を保持する
-	if not theme_data.has("background"):
-		theme_data["background"] = {}
-	var bg: Dictionary = theme_data["background"]
-
-	var sep_bg: Label = Label.new()
-	sep_bg.text = "--- Background ---"
-	_properties_container.add_child(sep_bg)
-
-	var tint_edit: LineEdit = LineEdit.new()
-	tint_edit.text = bg.get("tint", "#FFFFFF")
-	tint_edit.placeholder_text = "#RRGGBB"
-	tint_edit.text_changed.connect(func(new_text: String) -> void:
-		bg["tint"] = new_text
-		property_changed.emit("background.tint", new_text)
-	)
-	_properties_container.add_child(_create_property_row("Tint", tint_edit))
-
-	var tex_edit: LineEdit = LineEdit.new()
-	tex_edit.text = bg.get("texture", "")
-	tex_edit.placeholder_text = "textures/bg.png"
-	tex_edit.text_changed.connect(func(new_text: String) -> void:
-		bg["texture"] = new_text
-		property_changed.emit("background.texture", new_text)
-	)
-	_properties_container.add_child(_create_property_row("Texture", tex_edit))
-
-	# --- Window ---
-	if not theme_data.has("window"):
-		theme_data["window"] = {}
-	var window: Dictionary = theme_data["window"]
-	if not window.has("padding"):
-		window["padding"] = {"l": 24, "t": 24, "r": 24, "b": 24}
-	var padding: Dictionary = window["padding"]
-
-	var sep_win: Label = Label.new()
-	sep_win.text = "--- Window ---"
-	_properties_container.add_child(sep_win)
-
-	for side: String in ["l", "t", "r", "b"]:
-		var spin: SpinBox = SpinBox.new()
-		spin.min_value = 0.0
-		spin.max_value = 256.0
-		spin.step = 1.0
-		spin.value = padding.get(side, 24)
-		spin.value_changed.connect(func(new_val: float) -> void:
-			padding[side] = int(new_val)
-			property_changed.emit("window.padding." + side, int(new_val))
-		)
-		_properties_container.add_child(_create_property_row("Padding " + side.to_upper(), spin))
-
-	# --- Node Presets ---
-	var sep_np: Label = Label.new()
-	sep_np.text = "--- Node Presets ---"
-	_properties_container.add_child(sep_np)
-
-	var node_presets: Dictionary = theme_data.get("node_presets", {})
-	for preset_key: String in node_presets.keys():
-		var preset: Dictionary = node_presets[preset_key]
-
-		_properties_container.add_child(_create_readonly_row("Preset", preset_key))
-
-		var size_spin: SpinBox = SpinBox.new()
-		size_spin.min_value = 16.0
-		size_spin.max_value = 256.0
-		size_spin.step = 1.0
-		size_spin.value = preset.get("size", 48)
-		size_spin.value_changed.connect(func(new_val: float) -> void:
-			preset["size"] = int(new_val)
-			property_changed.emit("node_presets." + preset_key + ".size", int(new_val))
-		)
-		_properties_container.add_child(_create_property_row("Size", size_spin))
+	_properties_container.add_child(_theme_editor_panel)
+	_theme_editor_panel.bind_theme_resolver(_theme_resolver)
 
 
 ## シグナル切断とプロパティクリアを行う
@@ -789,6 +745,10 @@ func unbind() -> void:
 	_model = null
 	_selection = null
 	_theme_resolver = null
+	# キャッシュした ThemeEditorPanel を解放してから null 化
+	if _theme_editor_panel != null and is_instance_valid(_theme_editor_panel):
+		_theme_editor_panel.queue_free()
+	_theme_editor_panel = null
 	_clear_properties()
 	_show_no_selection()
 
@@ -825,12 +785,15 @@ func _build_ui() -> void:
 
 
 ## プロパティコンテナの全子ノードを削除する
+##
+## _theme_editor_panel はキャッシュのため queue_free せず取り出しておく。
 func _clear_properties() -> void:
 	if _properties_container == null:
 		return
 	for child: Node in _properties_container.get_children():
 		_properties_container.remove_child(child)
-		child.queue_free()
+		if child != _theme_editor_panel:
+			child.queue_free()
 
 
 ## ラベルと値コントロールを横並びにしたプロパティ行を作成する
@@ -874,7 +837,7 @@ func _create_readonly_row(label_text: String, value_text: String) -> HBoxContain
 func _create_section_label(text: String) -> Label:
 	var lbl: Label = Label.new()
 	lbl.text = text
-	lbl.add_theme_color_override("font_color", Color(0.6, 0.8, 1.0, 1.0))
+	lbl.add_theme_color_override("font_color", SECTION_LABEL_COLOR)
 	return lbl
 
 
@@ -947,6 +910,13 @@ func _show_no_selection() -> void:
 
 
 # --- Signal Callbacks ---
+
+## ThemeEditorPanel からの theme_changed シグナルを伝播するコールバック
+##
+## @param data: テーマデータ辞書 (Dictionary)
+func _on_theme_editor_changed(data: Dictionary) -> void:
+	theme_changed.emit(data)
+
 
 ## 選択変更時のコールバック
 ##
