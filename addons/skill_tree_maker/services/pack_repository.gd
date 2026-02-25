@@ -113,7 +113,7 @@ func save_pack(model: SkillTreeModel, pack_root: String) -> bool:
 ## @param pack_root: Pack ルートディレクトリのパス (String)
 ## @param pack_id: Pack の識別子 (String)
 ## @param pack_name: Pack の表示名 (String)
-## @param theme_preset: テーマプリセット名 (String)。デフォルトは "default"
+## @param theme_preset: テーマプリセット名 (String)。ThemePresetLibrary.PRESET_* 参照。デフォルトは "default"
 ## @return: 作成された SkillTreeModel。失敗時は null
 func create_pack(pack_root: String, pack_id: String, pack_name: String, theme_preset: String = ThemePresetLibrary.PRESET_DEFAULT) -> SkillTreeModel:
 	if pack_root.is_empty():

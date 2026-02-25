@@ -87,6 +87,12 @@ const ARCANE_UNLOCKED_GLOW: String = "#DA70D6"
 ## アーケイン: エッジアクティブ色
 const ARCANE_EDGE_COLOR_ACTIVE: String = "#BF00FF"
 
+## ノードデフォルトプリセットキー（ThemeData.DEFAULT_NODE_PRESET_KEY と値を一致させること）
+const NODE_DEFAULT_KEY: String = "node_default"
+
+## エッジデフォルトプリセットキー（ThemeData.DEFAULT_EDGE_PRESET_KEY と値を一致させること）
+const EDGE_DEFAULT_KEY: String = "edge_default"
+
 
 # --- Public Static Functions ---
 
@@ -100,6 +106,7 @@ static func get_preset_names() -> Array[String]:
 ## 指定されたプリセット名に対応するテーマ Dictionary を生成する
 ##
 ## 不明なプリセット名が指定された場合は default テーマを返す。
+## 新プリセット追加時は ALL_PRESET_NAMES 定数も合わせて更新すること。
 ##
 ## @param preset_name: プリセット名 (String)
 ## @return: theme.json 形式の Dictionary
@@ -181,7 +188,7 @@ static func _build_theme(
 			},
 		},
 		"node_presets": {
-			"node_default": {
+			NODE_DEFAULT_KEY: {
 				"base_texture": "",
 				"size": NODE_DEFAULT_SIZE,
 				"states": {
@@ -200,7 +207,7 @@ static func _build_theme(
 			},
 		},
 		"edge_presets": {
-			"edge_default": {
+			EDGE_DEFAULT_KEY: {
 				"width": EDGE_DEFAULT_WIDTH,
 				"color_locked": EDGE_COLOR_LOCKED,
 				"color_active": edge_active,

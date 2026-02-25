@@ -37,6 +37,9 @@ const PADDING_MAX: float = 256.0
 ## ラベル幅の比率（行全体に対するラベルの割合）
 const LABEL_WIDTH_RATIO: float = 0.4
 
+## 値コントロール幅の比率（1.0 - LABEL_WIDTH_RATIO）
+const VALUE_WIDTH_RATIO: float = 1.0 - LABEL_WIDTH_RATIO
+
 ## セクションラベルの文字色
 const SECTION_LABEL_COLOR: Color = Color(0.6, 0.8, 1.0, 1.0)
 
@@ -112,6 +115,8 @@ func _clear_properties() -> void:
 ##
 ## @param theme_data: テーマデータ辞書 (Dictionary)
 func _build_background_section(theme_data: Dictionary) -> void:
+	# theme_data は ThemeResolver.get_theme_data() の参照渡し。
+	# キーが欠損している場合はここで補完し、インメモリのテーマデータを直接更新する。
 	if not theme_data.has("background"):
 		theme_data["background"] = {}
 	var bg: Dictionary = theme_data["background"]
@@ -265,6 +270,7 @@ func _build_node_state_ui(states: Dictionary, state_key: String) -> void:
 	_properties_container.add_child(_create_property_row("Glow", glow_check))
 
 	# glow_color (ColorPickerButton) -- can_unlock / unlocked のみ
+	# locked ステートは仕様上 glow_color を持たない（常に非発光のため設定不要）
 	if state_key != "locked":
 		var default_glow: String = ThemeData.DEFAULT_GLOW_COLOR_UNLOCK if state_key == "can_unlock" else ThemeData.DEFAULT_GLOW_COLOR_UNLOCKED
 		var glow_color_str: String = state.get("glow_color", default_glow)
@@ -358,7 +364,7 @@ func _create_property_row(label_text: String, value_control: Control) -> HBoxCon
 	row.add_child(label)
 
 	value_control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	value_control.size_flags_stretch_ratio = 1.0 - LABEL_WIDTH_RATIO
+	value_control.size_flags_stretch_ratio = VALUE_WIDTH_RATIO
 	row.add_child(value_control)
 
 	return row

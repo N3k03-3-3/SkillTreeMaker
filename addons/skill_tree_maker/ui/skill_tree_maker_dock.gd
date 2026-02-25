@@ -186,6 +186,8 @@ func open_pack(pack_root: String) -> void:
 
 
 ## 現在の Pack を保存する
+##
+## @return: なし（void）
 func save_pack() -> void:
 	if _model == null or _current_pack_root.is_empty():
 		_set_status("Nothing to save")
@@ -196,7 +198,7 @@ func save_pack() -> void:
 
 	var success: bool = _pack_repository.save_pack(_model, _current_pack_root)
 
-	# テーマが読み込まれていれば保存
+	# テーマが読み込まれていれば保存（失敗は非致命的 — pack.json 保存の成否には影響しない）
 	if _theme_resolver.is_loaded():
 		var theme_path: String = _current_pack_root.path_join(
 			_model.paths.get("theme", "theme/theme.json"))
@@ -431,7 +433,8 @@ func _bind_all_panels() -> void:
 	_hierarchy_panel.set_model(_model, _selection)
 	_inspector_panel.bind_selection(_model, _selection)
 
-	# テーマ読み込みとインスペクタへの参照設定
+	# resolver の参照を先に渡し、その後 load_theme でデータを充填する。
+	# InspectorPanel は resolver 参照経由で遅延アクセスするため順序に問題はない。
 	_inspector_panel.bind_theme_resolver(_theme_resolver)
 	if _model != null and not _current_pack_root.is_empty():
 		var theme_path: String = _current_pack_root.path_join(

@@ -20,7 +20,7 @@ signal pack_confirmed(pack_id: String, pack_name: String, out_dir: String, theme
 const DEFAULT_OUTPUT_DIR: String = "res://SkillTreePacks"
 
 ## ダイアログの最小サイズ
-const DIALOG_MIN_SIZE: Vector2i = Vector2i(420, 220)
+const DIALOG_MIN_SIZE: Vector2i = Vector2i(420, 260)
 
 ## Pack ID に許可される文字パターン（英数字とアンダースコア）
 const VALID_ID_PATTERN: String = "^[a-zA-Z0-9_]+$"
@@ -188,6 +188,9 @@ func _on_dir_text_changed(_new_text: String) -> void:
 
 
 ## 確認ボタン押下時のバリデーションとシグナル発火
+##
+## バリデーション失敗時はダイアログを再表示して入力内容を保持する。
+## @return: なし（void）
 func _on_confirmed() -> void:
 	if not _validate():
 		# バリデーション失敗時はダイアログを再表示（入力内容を保持）

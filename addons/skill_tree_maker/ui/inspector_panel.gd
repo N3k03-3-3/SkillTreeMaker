@@ -721,15 +721,17 @@ func edit_theme_props() -> void:
 			_create_readonly_row("Theme", "(not loaded)"))
 		return
 
-	# ThemeEditorPanel を初回のみ生成してキャッシュ
+	# ThemeEditorPanel を初回のみ生成してキャッシュし、resolver を bind する
 	if _theme_editor_panel == null:
 		_theme_editor_panel = ThemeEditorPanel.new()
 		_theme_editor_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		if not _theme_editor_panel.theme_changed.is_connected(_on_theme_editor_changed):
 			_theme_editor_panel.theme_changed.connect(_on_theme_editor_changed)
+		_theme_editor_panel.bind_theme_resolver(_theme_resolver)
 
 	_properties_container.add_child(_theme_editor_panel)
-	_theme_editor_panel.bind_theme_resolver(_theme_resolver)
+	# resolver は初回 bind 済みのため、以降は rebuild_ui() でデータを再描画する
+	_theme_editor_panel.rebuild_ui()
 
 
 ## シグナル切断とプロパティクリアを行う
@@ -787,6 +789,7 @@ func _build_ui() -> void:
 ## プロパティコンテナの全子ノードを削除する
 ##
 ## _theme_editor_panel はキャッシュのため queue_free せず取り出しておく。
+## 取り出し後は孤立状態になるが、次の edit_theme_props() で再 add_child される。
 func _clear_properties() -> void:
 	if _properties_container == null:
 		return

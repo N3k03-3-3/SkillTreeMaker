@@ -133,6 +133,10 @@ func from_dict(data: Dictionary) -> void:
 		push_error("[ThemeData] from_dict: data is empty")
 		return
 
+	var version: int = data.get("schema_version", 0)
+	if version != SCHEMA_VERSION:
+		push_warning("[ThemeData] from_dict: schema_version mismatch (%d != %d)" % [version, SCHEMA_VERSION])
+
 	background = data.get("background", {})
 	window = data.get("window", {})
 	node_presets = data.get("node_presets", {})
@@ -160,14 +164,18 @@ func to_dict() -> Dictionary:
 
 ## テーマデータが有効かどうかを検証する
 ##
-## node_presets に DEFAULT_NODE_PRESET_KEY、
-## edge_presets に DEFAULT_EDGE_PRESET_KEY が存在するかを確認する。
+## node_presets に DEFAULT_NODE_PRESET_KEY、edge_presets に DEFAULT_EDGE_PRESET_KEY、
+## background に "tint"、window に "padding" が存在するかを確認する。
 ##
 ## @return: 有効なら true
 func is_valid() -> bool:
 	if not node_presets.has(DEFAULT_NODE_PRESET_KEY):
 		return false
 	if not edge_presets.has(DEFAULT_EDGE_PRESET_KEY):
+		return false
+	if not background.has("tint"):
+		return false
+	if not window.has("padding"):
 		return false
 	return true
 
