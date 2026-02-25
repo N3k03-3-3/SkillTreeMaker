@@ -218,10 +218,12 @@ SkillTreeMaker/
 │   ├── model/                      # データモデル層
 │   │   ├── skill_tree_model.gd     # ノード/エッジ/グループ管理
 │   │   ├── selection_model.gd      # 選択状態管理
-│   │   └── tool_state.gd           # Grid/Snap/ズーム状態
+│   │   ├── tool_state.gd           # Grid/Snap/ズーム状態
+│   │   └── theme_data.gd           # テーマデータモデル（Phase 10）
 │   ├── services/                   # ビジネスロジック層
 │   │   ├── pack_repository.gd      # Pack 永続化
 │   │   ├── theme_resolver.gd       # テーマ解決・保存
+│   │   ├── theme_preset_library.gd # ビルトインテーマプリセット（Phase 10）
 │   │   ├── validator.gd            # 構造バリデーション
 │   │   └── runtime_exporter.gd     # runtime.json 生成
 │   ├── runtime/                    # ゲームランタイム層
@@ -229,14 +231,20 @@ SkillTreeMaker/
 │   │   ├── skill_tree_state.gd     # 状態管理・セーブ/ロード
 │   │   ├── skill_tree_viewer.gd    # ツリー描画・操作 UI
 │   │   └── node_animation_state.gd # ノードアニメーション
+│   ├── skills/                     # スキルデータ層（Phase 8）
+│   │   ├── skill_entry.gd          # スキルエントリ定義
+│   │   └── skill_repository.gd     # スキルライブラリ管理
 │   └── ui/                         # UI 層
 │       ├── skill_tree_maker_dock.gd # メインコーディネータ
 │       ├── canvas_view.gd          # キャンバス描画
 │       ├── hierarchy_panel.gd      # 階層ツリー
 │       ├── inspector_panel.gd      # プロパティ編集
+│       ├── theme_editor_panel.gd   # テーマ編集 UI（Phase 10）
 │       ├── canvas_context_menu.gd  # 右クリックメニュー
 │       ├── pack_creation_dialog.gd # Pack 作成ダイアログ
-│       └── group_name_dialog.gd    # グループ名入力ダイアログ
+│       ├── group_name_dialog.gd    # グループ名入力ダイアログ
+│       ├── skill_list_panel.gd     # スキル一覧パネル（Phase 8）
+│       └── skill_creation_dialog.gd # スキル作成ダイアログ（Phase 8）
 ├── document/                       # 仕様書・設計書
 │   ├── 0.作成仕様
 │   ├── 1.フォルダ仕様
@@ -291,13 +299,33 @@ SkillTreeMaker/
 - [x] SkillTreeViewer 実装（Control ベース描画・パン/ズーム・説明パネル）
 - [x] アニメーションシステム（アンロック・ホバー・パルス・エッジ遷移）
 
-### Phase 6: 拡張機能
+### Phase 6: 拡張機能 ✅
 - [x] プレビューモード（エディタ内でランタイム描画をテスト）
 - [x] サンプルパック（`examples/warrior_pack`）
 
 ### Phase 7: ドキュメント整備 ✅
 - [x] API リファレンス（`document/api_reference.md`）
 - [x] 使い方ガイド（`document/usage_guide.md`）
+
+### Phase 8: PO フィードバック対応 ✅
+- [x] NodeType（minor / notable / keystone / socket）
+- [x] 複数クラス対応 entry_nodes
+- [x] unlock_rule（requires / path_connected）
+- [x] グループ依存関係（group_edges）
+- [x] Skill システム（SkillEntry / SkillRepository / SkillListPanel）
+
+### Phase 9: 大規模スキルツリー対応 ✅
+- [x] Viewport カリング（10,000 ノード対応）
+- [x] ValidationReport インナークラス
+- [x] BFS ヘルパー共通化（check_unreachable / check_path_connectivity）
+- [x] SkillTreeState の大規模データ最適化
+
+### Phase 10: テーマシステム ✅
+- [x] ThemeData モデルクラス（from_dict / to_dict / is_valid）
+- [x] ThemePresetLibrary（default / space / arcane ビルトインプリセット）
+- [x] ThemeEditorPanel（Inspector 内テーマ編集 UI）
+- [x] PackCreationDialog にテーマテンプレート選択を追加
+- [x] create_pack の theme_preset 引数対応
 
 ---
 
@@ -324,4 +352,4 @@ SkillTreeMaker/
 ---
 
 **Author**: nekosan
-**Last Updated**: 2026-02-21
+**Last Updated**: 2026-02-25

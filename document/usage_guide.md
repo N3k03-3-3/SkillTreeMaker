@@ -48,7 +48,16 @@ viewer.load_pack("res://SkillTreePacks/my_pack")
 1. エディタ下部の **SkillTreeMaker** タブを開く
 2. **New Pack** ボタンをクリック
 3. Pack ID、表示名、出力先ディレクトリを入力
-4. **Create** をクリック
+4. **Theme Template** を選択（下記参照）
+5. **Create** をクリック
+
+**Theme Template の選択肢**:
+
+| テンプレート名 | 特徴 |
+|-------------|------|
+| `default` | 深夜ブルーの背景、シアン/ゴールドのグロー（汎用） |
+| `space` | 漆黒の背景、水色のグロー（SF・宇宙系） |
+| `arcane` | 深紫の背景、紫のグロー（魔法・アーケイン系） |
 
 ### ノードの追加と編集
 
@@ -284,7 +293,25 @@ state.state_reset.connect(func() -> void:
 
 ### テーマでビジュアルを変える
 
-`theme/theme.json` を編集してノードやエッジの見た目をカスタマイズできます。エディタの Inspector からも設定可能です。
+テーマは 3 通りの方法でカスタマイズできます。
+
+#### 方法 1: Pack 作成時にプリセットを選ぶ
+
+New Pack ダイアログの **Theme Template** でビルトインプリセットを選択すると、対応した `theme/theme.json` が自動生成されます。
+
+| テンプレート | 特徴 |
+|------------|------|
+| `default` | 深夜ブルーの背景、シアン/ゴールドのグロー |
+| `space` | 漆黒の背景、水色のグロー（SF・宇宙系） |
+| `arcane` | 深紫の背景、紫のグロー（魔法・アーケイン系） |
+
+#### 方法 2: ThemeEditorPanel で編集する（エディタ UI）
+
+パックを開いた状態で Inspector の **Theme** セクションを展開すると、**ThemeEditorPanel** が表示されます。Background の背景色・テクスチャ、Window のパディング、Node/Edge プリセットの各プロパティを GUI で編集できます。Ctrl+S で保存すると `theme/theme.json` に書き出されます。
+
+#### 方法 3: theme.json を直接編集する
+
+`theme/theme.json` を任意のエディタで編集してカスタマイズします。
 
 ```json
 {
@@ -292,7 +319,7 @@ state.state_reset.connect(func() -> void:
     "node_default": {
       "size": 80,
       "states": {
-        "locked": {"glow": false, "glow_color": ""},
+        "locked": {"glow": false},
         "can_unlock": {"glow": true, "glow_color": "#FFD700"},
         "unlocked": {"glow": true, "glow_color": "#00FF88"}
       }
