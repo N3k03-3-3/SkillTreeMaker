@@ -191,8 +191,8 @@ func pack_exists(pack_root: String) -> bool:
 
 ## ディレクトリ構造を保証する
 ##
-## 必須・推奨ディレクトリを作成し、theme.json が存在しない場合は
-## デフォルトプリセットで初期化する。
+## 必須・推奨ディレクトリを作成する。
+## theme.json の生成は create_pack の _create_theme_from_preset に委譲する。
 ##
 ## @param pack_root: Pack ルートディレクトリのパス (String)
 func _ensure_directory_structure(pack_root: String) -> void:
@@ -208,14 +208,6 @@ func _ensure_directory_structure(pack_root: String) -> void:
 		var dir_path: String = pack_root.path_join(dir_name)
 		if not DirAccess.dir_exists_absolute(dir_path):
 			DirAccess.make_dir_recursive_absolute(dir_path)
-
-	# theme.json が存在しない場合はデフォルトプリセットで作成
-	var theme_path: String = pack_root.path_join(THEME_FILE)
-	if not FileAccess.file_exists(theme_path):
-		var default_theme: Dictionary = ThemePresetLibrary.create_preset(
-			ThemePresetLibrary.PRESET_DEFAULT
-		)
-		_write_json(theme_path, default_theme)
 
 
 ## JSON ファイルを読み込む
@@ -393,15 +385,6 @@ func _build_runtime_json(model: SkillTreeModel) -> Dictionary:
 		"edges": edges_array,
 		"group_edges": model.get_all_group_edges(),
 	}
-
-
-## デフォルトの theme.json を作成する
-##
-## theme.json が存在しない場合に ThemePresetLibrary の default プリセットで生成する。
-##
-## @param pack_root: Pack ルートディレクトリのパス (String)
-func _create_default_theme(pack_root: String) -> void:
-	_create_theme_from_preset(pack_root, ThemePresetLibrary.PRESET_DEFAULT)
 
 
 ## 指定プリセットで theme.json を作成する

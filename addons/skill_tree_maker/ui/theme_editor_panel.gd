@@ -90,7 +90,9 @@ func rebuild_ui() -> void:
 
 # --- Private Functions ---
 
-## UI 要素を構築する
+## UI 要素を構築する（_properties_container を生成して add_child する）
+##
+## @return: なし（void）
 func _build_ui() -> void:
 	_properties_container = VBoxContainer.new()
 	_properties_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -332,6 +334,8 @@ func _build_edge_preset_section(theme_data: Dictionary) -> void:
 
 
 ## UI の値をテーマデータに書き戻して theme_changed シグナルを emit する
+##
+## @return: なし（void）
 func _apply_to_theme_data() -> void:
 	if _theme_resolver == null or not _theme_resolver.is_loaded():
 		return

@@ -914,6 +914,7 @@ func _show_no_selection() -> void:
 ## ThemeEditorPanel からの theme_changed シグナルを伝播するコールバック
 ##
 ## @param data: テーマデータ辞書 (Dictionary)
+## @return: なし（void）
 func _on_theme_editor_changed(data: Dictionary) -> void:
 	theme_changed.emit(data)
 
